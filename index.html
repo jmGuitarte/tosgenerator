@@ -6,6 +6,9 @@
 <title>TOS Generator v2 — SNHS</title>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <style>
 :root{
   --maroon:#5c1a2b;--maroon-deep:#3e0f1c;
@@ -102,6 +105,48 @@ table.qbtbl td{border:1px solid var(--line-soft);padding:7px 9px;font-size:12px;
   background:var(--maroon);padding:2px 10px;border-radius:20px;flex-shrink:0;
 }
 .qb-group-body{background:#fff;}
+/* ── Auth bar ── */
+.auth-bar{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap;}
+.auth-signin-btn{
+  display:flex;align-items:center;gap:8px;background:#fff;color:#3c3c3c;border:none;border-radius:8px;
+  padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;
+  box-shadow:0 2px 6px rgba(0,0,0,.15);transition:.14s;
+}
+.auth-signin-btn:hover{box-shadow:0 3px 10px rgba(0,0,0,.22);}
+.auth-signin-btn img{width:17px;height:17px;}
+.auth-user{display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:4px 6px 4px 4px;}
+.auth-user img{width:26px;height:26px;border-radius:50%;}
+.auth-user-name{font-size:12.5px;color:#f6ecd9;font-weight:600;line-height:1.2;}
+.auth-user-email{font-size:10.5px;color:#c8b890;line-height:1.2;}
+.role-badge{font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:20px;text-transform:uppercase;letter-spacing:.03em;}
+.role-badge.teacher{background:#4f6b3a;color:#fff;}
+.role-badge.departmentHead{background:#5c4a8a;color:#fff;}
+.role-badge.admin{background:var(--gold);color:#3a2a08;}
+.auth-signout-btn{background:none;border:none;color:#e6d6b8;font-size:13px;cursor:pointer;padding:4px 8px;opacity:.8;}
+.auth-signout-btn:hover{opacity:1;}
+.auth-msg{font-size:12px;color:#f0c9a8;background:rgba(0,0,0,.15);padding:6px 12px;border-radius:8px;}
+/* ── Review Dashboard ── */
+.rd-list{display:flex;flex-direction:column;gap:10px;}
+.rd-card{border:1px solid var(--line);border-radius:10px;padding:13px 16px;cursor:pointer;transition:.14s;background:#fff;}
+.rd-card:hover{border-color:var(--gold);box-shadow:var(--shadow);}
+.rd-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+.rd-card-title{font-family:'Source Serif 4',serif;font-weight:700;font-size:14.5px;color:var(--maroon-deep);}
+.rd-card-meta{font-size:11.5px;color:#8a7a5c;margin-top:3px;}
+.rd-status{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap;}
+.rd-status.Pending{background:#fdf0e8;color:var(--warn);}
+.rd-status.Approved{background:#eaf4ee;color:var(--good);}
+.rd-status.NeedsRevision{background:#fde8e8;color:#a83030;}
+.rd-detail-back{background:none;border:none;color:var(--maroon-deep);font-size:13px;font-weight:600;cursor:pointer;margin-bottom:14px;padding:0;}
+.rd-status-row{display:flex;gap:8px;margin:14px 0;flex-wrap:wrap;}
+.rd-status-btn{padding:7px 14px;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;border:1.5px solid var(--line);background:#fff;font-family:'Inter',sans-serif;}
+.rd-status-btn.Approved.active{background:var(--good);color:#fff;border-color:var(--good);}
+.rd-status-btn.NeedsRevision.active{background:#a83030;color:#fff;border-color:#a83030;}
+.rd-status-btn.Pending.active{background:var(--warn);color:#fff;border-color:var(--warn);}
+.rd-comment{border:1px solid var(--line-soft);border-radius:8px;padding:9px 12px;margin-bottom:8px;background:var(--paper-deep);}
+.rd-comment-meta{font-size:10.5px;color:#8a7a5c;margin-bottom:3px;}
+.rd-comment-text{font-size:12.5px;color:var(--ink);}
+.admin-users-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line-soft);}
+.admin-users-row select{padding:5px 8px;border:1px solid var(--line);border-radius:6px;font-size:12px;font-family:'Inter',sans-serif;}
 .restore-banner{
   background:#fdf6e6;border:1px solid var(--gold);border-radius:10px;
   padding:12px 16px;margin-top:18px;display:flex;align-items:center;justify-content:space-between;
@@ -269,9 +314,26 @@ table.tbl-tos tr.total-row td{background:var(--paper-deep);font-weight:700;}
         <input type="file" id="loadDraftInput" accept=".json" style="display:none;">
       </label>
     </div>
+    <div class="auth-bar" id="authBar">
+      <button class="auth-signin-btn" id="signInBtn" onclick="signInWithGoogle()">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="">
+        Sign in with Google
+      </button>
+      <div class="auth-user" id="authUserBox" style="display:none;">
+        <img id="authUserPhoto" src="" alt="">
+        <div>
+          <div class="auth-user-name" id="authUserName"></div>
+          <div class="auth-user-email" id="authUserEmail"></div>
+        </div>
+        <span class="role-badge" id="authRoleBadge"></span>
+        <button class="auth-signout-btn" onclick="signOutUser()">Sign out</button>
+      </div>
+      <span class="auth-msg" id="authMsg" style="display:none;"></span>
+    </div>
     <div class="app-tabs">
       <div class="app-tab active" id="tabBuilder" onclick="setView('builder')">📋 TOS Builder</div>
       <div class="app-tab" id="tabBank" onclick="setView('bank')">📚 Question Bank</div>
+      <div class="app-tab" id="tabReview" onclick="setView('review')" style="display:none;">🧑‍💼 Review Dashboard</div>
     </div>
   </div>
 </header>
@@ -490,6 +552,7 @@ table.tbl-tos tr.total-row td{background:var(--paper-deep);font-weight:700;}
     <div style="display:flex;gap:9px;flex-wrap:wrap;">
       <button class="btn btn-gold" onclick="pullFromBank()">📚 Pull Matching Questions from Bank</button>
       <button class="btn btn-primary" id="exportBtn" onclick="exportTOS()">⬇ Export TOS (.xlsx)</button>
+      <button class="btn btn-primary" id="submitReviewBtn" onclick="submitForReview()" style="display:none;background:#5c4a8a;border-color:#5c4a8a;">📤 Submit for Review</button>
     </div>
   </div>
 </section>
@@ -681,6 +744,25 @@ table.tbl-tos tr.total-row td{background:var(--paper-deep);font-weight:700;}
 
 </div><!-- /view-bank -->
 
+<div class="view" id="view-review">
+
+<section class="card">
+  <p class="card-title">🧑‍💼 Review Dashboard</p>
+  <p class="card-desc">TOS and assembled test submissions from all teachers, awaiting your review.</p>
+  <div id="rdListArea"><div class="qb-empty">Loading submissions…</div></div>
+  <div id="rdDetailArea" style="display:none;"></div>
+</section>
+
+<details class="verb-card" id="adminRolesCard" style="display:none;">
+  <summary>⚙️ Admin: Manage Teacher Roles <span style="font-size:12px;font-weight:400;color:#9a8e76;margin-left:8px;">(click to expand)</span></summary>
+  <div class="verb-body">
+    <p style="font-size:13px;color:#6b5f4a;margin-bottom:12px;">Assign Department Head access to teachers who have signed in at least once. New sign-ins default to the Teacher role.</p>
+    <div id="adminUsersList"><div class="qb-empty">Loading users…</div></div>
+  </div>
+</details>
+
+</div><!-- /view-review -->
+
 <footer class="site-footer">
   <div class="wrap">
     <p class="footer-dev">Developed by</p>
@@ -719,6 +801,34 @@ function isExamCode(code){ return /^EXAM/.test(code||''); }
 /* ── STATE ── */
 let verbs=JSON.parse(JSON.stringify(DEF_VERBS));
 let comps=[];
+/* ═══════════════════════════════════════════════════
+   FIREBASE — LOGIN + CLOUD QUESTION BANK + REVIEW WORKFLOW
+   ═══════════════════════════════════════════════════
+   SETUP REQUIRED: paste your own Firebase project config below.
+   See the separate "Firebase Setup Guide" document for exact steps. */
+const firebaseConfig = {
+  apiKey: "AIzaSyBxZRg7NBXfeAyv6-lvqK5n25YYCcn93ys",
+  authDomain: "snhs-tos-generator.firebaseapp.com",
+  projectId: "snhs-tos-generator",
+  storageBucket: "snhs-tos-generator.firebasestorage.app",
+  messagingSenderId: "118810613515",
+  appId: "1:118810613515:web:e23d5a5992f0bff60ff40e"
+};
+const ALLOWED_EMAIL_DOMAIN = "deped.gov.ph"; // change to your school's email domain
+
+let fbApp=null, fbAuth=null, fbDb=null, fbReady=false;
+let currentUser=null;   // {uid, email, name, photo}
+let currentRole=null;   // 'teacher' | 'departmentHead' | 'admin'
+
+try{
+  if(firebaseConfig.apiKey !== "YOUR_API_KEY"){
+    fbApp = firebase.initializeApp(firebaseConfig);
+    fbAuth = firebase.auth();
+    fbDb = firebase.firestore();
+    fbReady = true;
+  }
+}catch(err){ console.warn('Firebase not configured yet:', err); }
+
 let bank=[]; // question bank: [{id,type,competency,domain,stem,optA,optB,optC,optD,correct,rubric,tf,pairs}]
 let qbType='mcq';
 let qbEditingId=null; // if set, saveQuestion() updates instead of inserts
@@ -727,9 +837,12 @@ let qbEditingId=null; // if set, saveQuestion() updates instead of inserts
 function setView(v){
   document.getElementById('tabBuilder').classList.toggle('active', v==='builder');
   document.getElementById('tabBank').classList.toggle('active', v==='bank');
+  document.getElementById('tabReview').classList.toggle('active', v==='review');
   document.getElementById('view-builder').classList.toggle('active', v==='builder');
   document.getElementById('view-bank').classList.toggle('active', v==='bank');
+  document.getElementById('view-review').classList.toggle('active', v==='review');
   if(v==='bank'){ refreshQBCompList(); renderBankTable(); populateQBDomainFilters(); }
+  if(v==='review'){ loadSubmissionsForReview(); }
 }
 let term=1;
 let assess='ST1';
@@ -1071,6 +1184,8 @@ function generateTOS(){
   });
   tosData={rows,target,totalDays,totalItems:rows.reduce((a,r)=>a+r.items,0)};
   renderPreview(tosData);
+  const subBtn=document.getElementById('submitReviewBtn');
+  if(subBtn) subBtn.style.display = currentUser ? 'inline-block' : 'none';
 }
 function renderPreview({rows,target,totalDays,totalItems}){
   const totDom={};DOMAINS.forEach(d=>{totDom[d]=rows.reduce((a,r)=>a+(r.domains[d]||0),0);});
@@ -1648,6 +1763,7 @@ function saveQuestion(){
   renderBankTable();
   refreshQBCompList();
   bankAutosaveTick();
+  cloudSaveQuestion(q);
 }
 
 function editQuestion(id){
@@ -1689,12 +1805,14 @@ function deleteQuestion(id){
   bank=bank.filter(q=>q.id!==id);
   renderBankTable();
   bankAutosaveTick();
+  cloudDeleteQuestion(id);
 }
 
 function clearBank(){
   bank=[];
   renderBankTable();
   bankAutosaveTick();
+  cloudClearBank();
 }
 
 /* ── Bank table rendering with filters ── */
@@ -1829,6 +1947,7 @@ async function handleQBFile(file){
       }
       bank.push(q);
       added++;
+      cloudSaveQuestion(q);
     }
     if(added===0){ pill.innerHTML=`<div class="file-pill" style="color:var(--warn);">⚠ No question rows found.</div>`; return; }
     renderBankTable(); refreshQBCompList(); bankAutosaveTick();
@@ -2088,6 +2207,312 @@ function downloadAssembledKey(){
   const a=document.createElement('a'); a.href=url; a.download=`Answer_Key_${new Date().toISOString().slice(0,10)}.txt`; a.rel='noopener';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(url),4000);
+}
+
+/* ═══════════════════════════════════════════════════
+   AUTH FLOW
+   ═══════════════════════════════════════════════════ */
+function showAuthMsg(msg){
+  const el=document.getElementById('authMsg');
+  el.textContent=msg; el.style.display='inline-block';
+  setTimeout(()=>{ el.style.display='none'; }, 6000);
+}
+
+function signInWithGoogle(){
+  if(!fbReady){ showAuthMsg('⚠ Firebase is not configured yet — see the setup guide.'); return; }
+  const provider = new firebase.auth.GoogleAuthProvider();
+  fbAuth.signInWithPopup(provider).catch(err=>{
+    showAuthMsg('⚠ Sign-in failed: '+err.message);
+  });
+}
+
+function signOutUser(){
+  if(!fbReady) return;
+  fbAuth.signOut();
+}
+
+async function ensureUserDoc(user){
+  const ref = fbDb.collection('users').doc(user.uid);
+  const snap = await ref.get();
+  if(!snap.exists){
+    await ref.set({
+      email: user.email,
+      name: user.displayName || user.email,
+      role: 'teacher',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    return 'teacher';
+  }
+  return snap.data().role || 'teacher';
+}
+
+function updateAuthUI(){
+  const signedIn = !!currentUser;
+  document.getElementById('signInBtn').style.display = signedIn ? 'none' : 'flex';
+  document.getElementById('authUserBox').style.display = signedIn ? 'flex' : 'none';
+  document.getElementById('tabReview').style.display = (currentRole==='departmentHead'||currentRole==='admin') ? 'block' : 'none';
+  document.getElementById('adminRolesCard').style.display = (currentRole==='admin') ? 'block' : 'none';
+  const subBtn=document.getElementById('submitReviewBtn');
+  if(subBtn) subBtn.style.display = (signedIn && tosData) ? 'inline-block' : 'none';
+
+  if(signedIn){
+    document.getElementById('authUserPhoto').src = currentUser.photo || '';
+    document.getElementById('authUserName').textContent = currentUser.name;
+    document.getElementById('authUserEmail').textContent = currentUser.email;
+    const badge=document.getElementById('authRoleBadge');
+    badge.textContent = currentRole==='departmentHead' ? 'Dept. Head' : (currentRole||'teacher');
+    badge.className = 'role-badge ' + (currentRole||'teacher');
+  }
+}
+
+if(fbReady){
+  fbAuth.onAuthStateChanged(async(user)=>{
+    if(user){
+      if(!user.email.toLowerCase().endsWith('@'+ALLOWED_EMAIL_DOMAIN.toLowerCase())){
+        showAuthMsg(`⚠ Only @${ALLOWED_EMAIL_DOMAIN} accounts are allowed. Signing out.`);
+        await fbAuth.signOut();
+        currentUser=null; currentRole=null; updateAuthUI();
+        return;
+      }
+      currentUser = { uid:user.uid, email:user.email, name:user.displayName||user.email, photo:user.photoURL };
+      currentRole = await ensureUserDoc(user);
+      updateAuthUI();
+      loadBankFromCloud();
+    } else {
+      currentUser=null; currentRole=null;
+      updateAuthUI();
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════
+   CLOUD-SYNCED QUESTION BANK (private per teacher)
+   ═══════════════════════════════════════════════════ */
+function bankCollection(){
+  return fbDb.collection('users').doc(currentUser.uid).collection('questionBank');
+}
+
+async function loadBankFromCloud(){
+  if(!fbReady || !currentUser) return;
+  try{
+    const snap = await bankCollection().get();
+    bank = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+    renderBankTable(); refreshQBCompList();
+  }catch(err){ console.warn('Could not load cloud bank:', err); }
+}
+
+async function cloudSaveQuestion(q){
+  if(!fbReady || !currentUser) return;
+  try{ await bankCollection().doc(q.id).set(q); }
+  catch(err){ console.warn('Cloud save failed:', err); }
+}
+
+async function cloudDeleteQuestion(id){
+  if(!fbReady || !currentUser) return;
+  try{ await bankCollection().doc(id).delete(); }
+  catch(err){ console.warn('Cloud delete failed:', err); }
+}
+
+async function cloudClearBank(){
+  if(!fbReady || !currentUser) return;
+  try{
+    const snap = await bankCollection().get();
+    const batch = fbDb.batch();
+    snap.docs.forEach(d=>batch.delete(d.ref));
+    await batch.commit();
+  }catch(err){ console.warn('Cloud clear failed:', err); }
+}
+
+/* ═══════════════════════════════════════════════════
+   SUBMIT TOS + ASSEMBLED TEST FOR REVIEW
+   ═══════════════════════════════════════════════════ */
+async function submitForReview(){
+  if(!fbReady || !currentUser){ alert('Sign in first to submit for review.'); return; }
+  if(!tosData){ alert('Generate the TOS first.'); return; }
+  const btn=document.getElementById('submitReviewBtn');
+  btn.disabled=true; const orig=btn.textContent; btn.textContent='Submitting…';
+  try{
+    const subject=document.getElementById('si-subject').value.trim()||'Untitled Subject';
+    const grade=document.getElementById('si-grade').value.trim();
+    const termNames=['1st Term','2nd Term','3rd Term'];
+    const assessLabel = isExamCode(assess) ? `Term ${term} Examination` : assess;
+
+    const payload = {
+      teacherUid: currentUser.uid,
+      teacherName: currentUser.name,
+      teacherEmail: currentUser.email,
+      subject, grade,
+      termLabel: `${termNames[term-1]} (${assessLabel})`,
+      submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      status: 'Pending',
+      comments: [],
+      tosRows: tosData.rows.map(r=>({
+        label:r.label, days:r.days, items:r.items, domains:r.domains, placement:r.placement
+      })),
+      totalItems: tosData.totalItems,
+      assembledItems: assembledTest ? assembledTest.items.map(it=>({
+        num:it.num, domain:it.domain, competency:it.competency,
+        stem: it.question ? it.question.stem : null,
+        type: it.question ? it.question.type : null
+      })) : null
+    };
+
+    await fbDb.collection('submissions').add(payload);
+    alert('✓ Submitted for review.');
+  }catch(err){
+    alert('Submission failed: '+err.message);
+  }finally{
+    btn.disabled=false; btn.textContent=orig;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   REVIEW DASHBOARD (Department Head / Admin)
+   ═══════════════════════════════════════════════════ */
+let rdSubmissions=[];
+
+async function loadSubmissionsForReview(){
+  const listArea=document.getElementById('rdListArea');
+  document.getElementById('rdDetailArea').style.display='none';
+  listArea.style.display='block';
+  if(!fbReady || !currentUser){ listArea.innerHTML='<div class="qb-empty">Sign in as a Department Head to view submissions.</div>'; return; }
+  try{
+    const snap = await fbDb.collection('submissions').orderBy('submittedAt','desc').limit(100).get();
+    rdSubmissions = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+    renderSubmissionList();
+    if(currentRole==='admin') loadAdminUsersList();
+  }catch(err){
+    listArea.innerHTML=`<div class="qb-empty">⚠ Could not load submissions: ${esc(err.message)}</div>`;
+  }
+}
+
+function renderSubmissionList(){
+  const listArea=document.getElementById('rdListArea');
+  if(rdSubmissions.length===0){
+    listArea.innerHTML='<div class="qb-empty">📭 No submissions yet.</div>';
+    return;
+  }
+  listArea.innerHTML = '<div class="rd-list">' + rdSubmissions.map(s=>{
+    const dt = s.submittedAt && s.submittedAt.toDate ? s.submittedAt.toDate().toLocaleString([], {dateStyle:'medium',timeStyle:'short'}) : '—';
+    const statusClass = (s.status||'Pending').replace(/\s+/g,'');
+    return `<div class="rd-card" onclick="openSubmission('${s.id}')">
+      <div class="rd-card-top">
+        <div>
+          <div class="rd-card-title">${esc(s.subject)} ${s.grade?'— '+esc(s.grade):''}</div>
+          <div class="rd-card-meta">${esc(s.teacherName)} · ${esc(s.termLabel||'')} · ${s.totalItems||0} items · ${dt}</div>
+        </div>
+        <span class="rd-status ${statusClass}">${esc(s.status||'Pending')}</span>
+      </div>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+function openSubmission(id){
+  const s = rdSubmissions.find(x=>x.id===id);
+  if(!s) return;
+  document.getElementById('rdListArea').style.display='none';
+  const det=document.getElementById('rdDetailArea');
+  det.style.display='block';
+
+  const totDom={};
+  DOMAINS.forEach(d=>{ totDom[d]=(s.tosRows||[]).reduce((a,r)=>a+((r.domains&&r.domains[d])||0),0); });
+
+  let tosHtml = `<table class="tbl-tos"><thead><tr><th>Competency</th><th>Days</th><th>Items</th>`;
+  DOMAINS.forEach(d=>tosHtml+=`<th>${ABBR[d]}</th>`);
+  tosHtml += `<th>Placement</th></tr></thead><tbody>`;
+  (s.tosRows||[]).forEach(r=>{
+    tosHtml += `<tr><td class="comp-title">${esc(r.label)}</td><td class="num">${r.days}</td><td class="num">${r.items}</td>`;
+    DOMAINS.forEach(d=>tosHtml+=`<td class="num">${(r.domains&&r.domains[d])||''}</td>`);
+    tosHtml += `<td class="placement">${esc(r.placement||'')}</td></tr>`;
+  });
+  tosHtml += `<tr class="total-row"><td>Total</td><td class="num">-</td><td class="num">${s.totalItems||0}</td>`;
+  DOMAINS.forEach(d=>tosHtml+=`<td class="num">${totDom[d]||0}</td>`);
+  tosHtml += `<td></td></tr></tbody></table>`;
+
+  let assembledHtml='';
+  if(s.assembledItems && s.assembledItems.length){
+    assembledHtml = '<div style="margin-top:16px;">' + s.assembledItems.map(it=>{
+      const body = it.stem ? esc(it.stem) : `<em style="color:var(--warn);">— not filled from bank —</em>`;
+      return `<div class="assembled-q"><span class="qnum">${it.num}.</span><span style="font-size:10.5px;color:#8a7a5c;">[${ABBR[it.domain]}]</span> ${body}</div>`;
+    }).join('') + '</div>';
+  }
+
+  const statuses=['Pending','Approved','NeedsRevision'];
+  const statusLabels={Pending:'Pending',Approved:'Approved',NeedsRevision:'Needs Revision'};
+  const statusRow = statuses.map(st=>`<button class="rd-status-btn ${st} ${s.status===st?'active':''}" onclick="setSubmissionStatus('${s.id}','${st}')">${statusLabels[st]}</button>`).join('');
+
+  const commentsHtml = (s.comments||[]).map(c=>`
+    <div class="rd-comment">
+      <div class="rd-comment-meta">${esc(c.author)} · ${c.at||''}</div>
+      <div class="rd-comment-text">${esc(c.text)}</div>
+    </div>`).join('') || '<p style="font-size:12.5px;color:#9a8e76;">No comments yet.</p>';
+
+  det.innerHTML = `
+    <button class="rd-detail-back" onclick="loadSubmissionsForReview()">← Back to list</button>
+    <h3 style="font-family:'Source Serif 4',serif;color:var(--maroon-deep);margin-bottom:4px;">${esc(s.subject)} ${s.grade?'— '+esc(s.grade):''}</h3>
+    <p style="font-size:12.5px;color:#8a7a5c;margin-bottom:14px;">Submitted by ${esc(s.teacherName)} (${esc(s.teacherEmail)}) · ${esc(s.termLabel||'')}</p>
+    <div class="tos-scroll">${tosHtml}</div>
+    ${assembledHtml}
+    <div class="rd-status-row">${statusRow}</div>
+    <div style="margin-top:10px;">
+      <textarea id="rdCommentInput" rows="2" placeholder="Leave a comment…" style="width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;background:var(--paper);resize:vertical;"></textarea>
+      <button class="btn btn-sm btn-primary" style="margin-top:8px;" onclick="addSubmissionComment('${s.id}')">Add comment</button>
+    </div>
+    <div style="margin-top:14px;">${commentsHtml}</div>
+  `;
+}
+
+async function setSubmissionStatus(id, status){
+  try{
+    await fbDb.collection('submissions').doc(id).update({ status });
+    const s=rdSubmissions.find(x=>x.id===id); if(s) s.status=status;
+    openSubmission(id);
+  }catch(err){ alert('Could not update status: '+err.message); }
+}
+
+async function addSubmissionComment(id){
+  const ta=document.getElementById('rdCommentInput');
+  const text=ta.value.trim();
+  if(!text) return;
+  const comment={ author: currentUser.name, text, at: new Date().toLocaleString([], {dateStyle:'medium',timeStyle:'short'}) };
+  try{
+    await fbDb.collection('submissions').doc(id).update({
+      comments: firebase.firestore.FieldValue.arrayUnion(comment)
+    });
+    const s=rdSubmissions.find(x=>x.id===id); if(s){ s.comments=s.comments||[]; s.comments.push(comment); }
+    openSubmission(id);
+  }catch(err){ alert('Could not add comment: '+err.message); }
+}
+
+/* ═══════════════════════════════════════════════════
+   ADMIN: MANAGE TEACHER ROLES
+   ═══════════════════════════════════════════════════ */
+async function loadAdminUsersList(){
+  const area=document.getElementById('adminUsersList');
+  try{
+    const snap = await fbDb.collection('users').get();
+    const users = snap.docs.map(d=>({ uid:d.id, ...d.data() }));
+    if(users.length===0){ area.innerHTML='<div class="qb-empty">No users have signed in yet.</div>'; return; }
+    area.innerHTML = users.map(u=>`
+      <div class="admin-users-row">
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:600;">${esc(u.name||u.email)}</div>
+          <div style="font-size:11px;color:#8a7a5c;">${esc(u.email)}</div>
+        </div>
+        <select onchange="updateUserRole('${u.uid}', this.value)">
+          <option value="teacher" ${u.role==='teacher'?'selected':''}>Teacher</option>
+          <option value="departmentHead" ${u.role==='departmentHead'?'selected':''}>Department Head</option>
+          <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+        </select>
+      </div>`).join('');
+  }catch(err){
+    area.innerHTML = `<div class="qb-empty">⚠ Could not load users: ${esc(err.message)}</div>`;
+  }
+}
+
+async function updateUserRole(uid, role){
+  try{ await fbDb.collection('users').doc(uid).update({ role }); }
+  catch(err){ alert('Could not update role: '+err.message); }
 }
 
 function checkForAutosave(){
