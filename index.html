@@ -74,7 +74,7 @@ h1{font-family:'Source Serif 4',serif;font-size:clamp(24px,3.5vw,36px);font-weig
 /* Competency table */
 .tbl-bar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
 .comp-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px;}
-table.ctbl{border-collapse:collapse;width:100%;min-width:1020px;}
+table.ctbl{border-collapse:collapse;width:100%;min-width:1380px;}
 table.ctbl thead th{background:var(--maroon);color:#fff;padding:9px 10px;font-size:11.5px;font-weight:700;text-align:center;border:1px solid rgba(255,255,255,.15);white-space:nowrap;}
 table.ctbl thead th:first-child{text-align:left;padding-left:12px;}
 table.ctbl td{border:1px solid var(--line-soft);padding:7px 8px;vertical-align:top;}
@@ -301,12 +301,14 @@ table.tbl-tos tr.total-row td{background:var(--paper-deep);font-weight:700;}
     <table class="ctbl">
       <thead>
         <tr>
-          <th style="min-width:220px;width:24%;text-align:left;padding-left:12px;">Learning Competency / Code</th>
-          <th style="min-width:178px;width:18%;">Objective 1</th>
-          <th style="min-width:178px;width:18%;">Objective 2</th>
-          <th style="min-width:178px;width:18%;">Objective 3</th>
-          <th style="min-width:72px;width:8%;">No. of Days</th>
-          <th style="min-width:34px;width:4%;"></th>
+          <th style="min-width:200px;width:18%;text-align:left;padding-left:12px;">Learning Competency / Code</th>
+          <th style="min-width:148px;width:13%;">Objective 1</th>
+          <th style="min-width:148px;width:13%;">Objective 2</th>
+          <th style="min-width:148px;width:13%;">Objective 3</th>
+          <th style="min-width:148px;width:13%;">Objective 4</th>
+          <th style="min-width:148px;width:13%;">Objective 5</th>
+          <th style="min-width:68px;width:7%;">No. of Days</th>
+          <th style="min-width:32px;width:3%;"></th>
         </tr>
       </thead>
       <tbody id="ctbody"></tbody>
@@ -502,8 +504,8 @@ async function handleFile(file){
         if(ct)objs=ct.split(/\r?\n|;/).map(l=>l.trim().replace(/^>>\s*/,'')).filter(Boolean).slice(0,3);
       }
       if(objs.length===0)continue;
-      while(objs.length<3)objs.push('');
-      rows.push({id:uid(),label,objs:objs.slice(0,3),doms:objs.map(o=>classifyAll(o)),days:0});
+      while(objs.length<5)objs.push('');
+      rows.push({id:uid(),label,objs:objs.slice(0,5),doms:objs.map(o=>classifyAll(o)).slice(0,5),days:0});
     }
     if(rows.length===0){pill.innerHTML=`<div class="file-pill" style="color:var(--warn);">⚠ No competency rows found. Check the file format.</div>`;return;}
     comps=[...comps,...rows];
@@ -517,18 +519,18 @@ async function handleFile(file){
 async function downloadSourceTemplate(){
   try{
     const wb=new ExcelJS.Workbook();const ws=wb.addWorksheet('Source');
-    ws.columns=[{width:44},{width:34},{width:34},{width:34},{width:50}];
-    const h=ws.addRow(['Learning Competency / Code','Objective 1 (Knowledge)','Objective 2 (Skills)','Objective 3 (Attitude)','Combined Objectives']);
+    ws.columns=[{width:44},{width:30},{width:30},{width:30},{width:30},{width:30},{width:46}];
+    const h=ws.addRow(['Learning Competency / Code','Objective 1','Objective 2','Objective 3','Objective 4','Objective 5','Combined Objectives']);
     h.font={bold:true};
-    ws.addRow(['LO 1. Sample competency (CODE)','Identify the parts of a system','Demonstrate proper assembly procedures','Value the importance of safety','a) Identify the parts; b) Demonstrate procedures; c) Value safety.']);
-    ws.addRow(['LO 2. Another competency (CODE)','Explain common system errors','Apply troubleshooting steps','Appreciate systematic problem-solving','a) Explain errors; b) Apply steps; c) Appreciate the process.']);
+    ws.addRow(['LO 1. Sample competency (CODE)','Identify the parts of a system','Demonstrate proper assembly procedures','Value the importance of safety','','','a) Identify the parts; b) Demonstrate procedures; c) Value safety.']);
+    ws.addRow(['LO 2. Another competency (CODE)','Explain common system errors','Apply troubleshooting steps','Appreciate systematic problem-solving','','','a) Explain errors; b) Apply steps; c) Appreciate the process.']);
     triggerDl(await wb.xlsx.writeBuffer(),'TOS_source_template.xlsx');
   }catch(err){alert('Could not create template: '+err.message);}
 }
 
 /* ── COMPETENCY TABLE ── */
 function addRow(){
-  comps.push({id:uid(),label:'',objs:['','',''],doms:[[],[],[]],days:0});
+  comps.push({id:uid(),label:'',objs:['','','','',''],doms:[[],[],[],[],[]],days:0});
   renderTable();
   const tbody=document.getElementById('ctbody');
   if(tbody.lastElementChild)setTimeout(()=>tbody.lastElementChild.scrollIntoView({block:'nearest',behavior:'smooth'}),50);
@@ -563,8 +565,8 @@ function buildRow(c){
   taL.addEventListener('change',()=>c.label=taL.value);
   tdL.appendChild(taL); tr.appendChild(tdL);
 
-  /* Columns 2-4: objectives with multi-domain chips */
-  for(let i=0;i<3;i++){
+  /* Columns 2-6: objectives with multi-domain chips */
+  for(let i=0;i<5;i++){
     const td=document.createElement('td');
     const ta=document.createElement('textarea'); ta.value=c.objs[i]||''; ta.rows=3; ta.placeholder=`Objective ${i+1}…`;
     ta.addEventListener('input',()=>{
@@ -879,7 +881,21 @@ function buildPrompt(mode){
     prompt += `4. Number questions according to the Item Placement specified above.\n`;
     prompt += `5. Do not repeat or minimally paraphrase questions.\n`;
     prompt += `6. After all questions, provide a separate ANSWER KEY section listing the correct answers (e.g. 1-A, 2-C, ...).\n`;
-    prompt += `7. Label each question with its competency number (e.g. [Competency 1]) in parentheses after the item number.\n`;
+    prompt += `\n`;
+    prompt += `ADDITIONAL REQUIRED ITEMS (beyond the ${totalItems} multiple-choice questions):\n`;
+    prompt += `A. PISA-like Question (1 item)\n`;
+    prompt += `   • Provide a short reading passage, data table, graph, or real-world scenario.\n`;
+    prompt += `   • Write at least 2 sub-items (a, b, c) that require interpretation, inference, or application of the passage/data.\n`;
+    prompt += `   • Align to Analysis or Evaluating level.\n`;
+    prompt += `   • Context should be relevant to ${subject} and ${grade} learners.\n`;
+    prompt += `\n`;
+    prompt += `B. Open-Ended Question (1 item)\n`;
+    prompt += `   • Require a written or constructed response (not multiple-choice).\n`;
+    prompt += `   • Should demand explanation, justification, or demonstration of understanding.\n`;
+    prompt += `   • Align to the highest cognitive domain appearing in the TOS.\n`;
+    prompt += `   • Include a scoring guide or rubric (at least 3 criteria).\n`;
+    prompt += `\n`;
+    prompt += `Place these two items AFTER the numbered multiple-choice questions and before the Answer Key.\n`;
 
   } else if(mode==='compact'){
     prompt += `Generate ${totalItems} multiple-choice questions (A/B/C/D) for ${subject}, ${grade}, ${termLabel}.\n\n`;
@@ -889,7 +905,8 @@ function buildPrompt(mode){
       r.objectives.forEach(o=>prompt += `   • ${o}\n`);
       prompt += `   Placement: ${r.placement.replace(/\n/g,', ')}\n\n`;
     });
-    prompt += `Include an answer key. Align question difficulty to the domain (R=recall, U=explain, App=apply, An=analyze, Ev=evaluate, C=create).`;
+    prompt += `Include an answer key. Align question difficulty to the domain (R=recall, U=explain, App=apply, An=analyze, Ev=evaluate, C=create).\n`;
+    prompt += `\nADDITIONAL REQUIRED: After the MCQs, add 1 PISA-like question (with a scenario/data and 2+ sub-items, Analysis/Evaluating level) and 1 open-ended/constructed-response question (with a rubric, highest domain in TOS). Place these before the Answer Key.`;
 
   } else if(mode==='filipino'){
     prompt += `Ikaw ay isang tagapagsulat ng mga pagsubok na nakahanay sa kurikulum ng DepEd para sa ${level}.\n`;
@@ -912,6 +929,16 @@ function buildPrompt(mode){
     prompt += `3. Ihanay ang bawat tanong sa tamang antas ng kakayahan (Paggunita, Pag-unawa, Paglalapat, Pagsusuri, Pagsasuri, Paglikha).\n`;
     prompt += `4. Gamitin ang item placement na nakalagay sa TOS bilang gabay sa pagbibilang ng mga tanong.\n`;
     prompt += `5. Pagkatapos ng lahat ng tanong, magbigay ng hiwalay na SUSI SA SAGOT.\n`;
+    prompt += `\n`;
+    prompt += `KARAGDAGANG KINAKAILANGANG AYTEM (bukod sa ${totalItems} multiple-choice questions):\n`;
+    prompt += `A. PISA-like na Tanong (1 aytem)\n`;
+    prompt += `   • Maglaan ng maikling sipi, talaan ng datos, graph, o tunay na sitwasyon.\n`;
+    prompt += `   • Sumulat ng hindi bababa sa 2 sub-tanong (a, b, c) na nangangailangan ng interpretasyon o pagsusuri.\n`;
+    prompt += `   • Iayon sa antas ng Pagsusuri o Pagsasuri.\n`;
+    prompt += `B. Bukas na Tanong (1 aytem)\n`;
+    prompt += `   • Nangangailangan ng nakasulat na sagot, paliwanag, o pagpapatunay.\n`;
+    prompt += `   • Isama ang rubric ng pagmamarka (hindi bababa sa 3 pamantayan).\n`;
+    prompt += `Ilagay ang dalawang aytem na ito PAGKATAPOS ng numbered na multiple-choice questions at bago ang Susi sa Sagot.\n`;
   }
 
   document.getElementById('promptTA').value=prompt;
