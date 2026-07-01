@@ -165,6 +165,12 @@ table.tbl-tos tr.total-row td{background:var(--paper-deep);font-weight:700;}
     <div class="field"><label>Grade Level &amp; Section</label><input type="text" id="si-grade" placeholder="e.g. Grade 12 – Emerald"></div>
     <div class="field"><label>Subject</label><input type="text" id="si-subject" placeholder="e.g. CSS NC II"></div>
   </div>
+  <div style="margin-top:13px;max-width:380px;">
+    <div class="field">
+      <label>Name of Teacher <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0a080;">(Prepared by — written into signatory row)</span></label>
+      <input type="text" id="si-teacher" value="JOSE MANUEL R. GUITARTE">
+    </div>
+  </div>
 
   <div style="margin-top:16px;">
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a7a5c;margin-bottom:10px;">Examination Term &amp; Summative Assessment</div>
@@ -636,6 +642,7 @@ async function exportTOS(){
     const sid=document.getElementById('si-id').value.trim();
     const grade=document.getElementById('si-grade').value.trim();
     const subject=document.getElementById('si-subject').value.trim();
+    const teacher=document.getElementById('si-teacher').value.trim();
 
     // Build term string with SA label
     const termNames=['1st Term','2nd Term','3rd Term'];
@@ -649,6 +656,7 @@ async function exportTOS(){
     ws.getRow(4).getCell(1).value=`Grade Level & Section: ${grade}`;
     ws.getRow(5).getCell(1).value=`School ID: ${sid}`;
     ws.getRow(6).getCell(5).value=termStr;
+    if(teacher) ws.getRow(16).getCell(1).value=teacher;
 
     let hRowNum=-1,totRowNum=-1;
     for(let r=1;r<=Math.min(25,ws.rowCount);r++){let hit=false;ws.getRow(r).eachCell({includeEmpty:false},cell=>{if(/learning compet/i.test((cell.text||'').toString()))hit=true;});if(hit){hRowNum=r;break;}}
