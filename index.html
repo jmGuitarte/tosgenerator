@@ -79,7 +79,7 @@ h1{font-family:'Source Serif 4',serif;font-size:clamp(24px,3.5vw,36px);font-weig
 .qb-filter-bar .field{min-width:160px;}
 .qb-filter-bar select,.qb-filter-bar input{padding:7px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:12.5px;font-family:'Inter',sans-serif;background:var(--paper);}
 .qb-table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px;}
-table.qbtbl{border-collapse:collapse;width:100%;min-width:820px;}
+table.qbtbl{border-collapse:collapse;width:100%;min-width:920px;}
 table.qbtbl thead th{background:var(--maroon);color:#fff;padding:8px 10px;font-size:11px;font-weight:700;text-align:left;border:1px solid rgba(255,255,255,.15);white-space:nowrap;}
 table.qbtbl td{border:1px solid var(--line-soft);padding:7px 9px;font-size:12px;vertical-align:top;}
 .qb-type-badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#fff;}
@@ -586,6 +586,18 @@ table.tbl-tos tr.total-row td{background:var(--paper-deep);font-weight:700;}
     </div>
     <button class="btn btn-gold" onclick="generateTOS()" style="height:38px;align-self:flex-end;">Generate TOS →</button>
   </div>
+  <div style="margin-top:14px;">
+    <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a7a5c;display:block;margin-bottom:8px;">Domain Distribution Method</label>
+    <div class="term-row" style="margin-top:0;">
+      <div class="term-chip active" id="distMode-objective" onclick="setDistMode('objective')">
+        <span class="term-dot"></span>Per-objective classification
+      </div>
+      <div class="term-chip" id="distMode-preset" onclick="setDistMode('preset')">
+        <span class="term-dot"></span>DepEd Preset (30-20-20-10-10-10)
+      </div>
+    </div>
+    <p style="font-size:11.5px;color:#9a8e76;margin-top:7px;">Preset mode applies the standard % split only across the domains actually present in each competency's objectives — renormalized to 100% for that row.</p>
+  </div>
   <div id="genError" style="font-size:13px;color:var(--warn);margin-top:10px;display:none;"></div>
 </section>
 
@@ -661,9 +673,10 @@ table.tbl-tos tr.total-row td{background:var(--paper-deep);font-weight:700;}
     </div>
     <div class="field">
       <label>Domain</label>
-      <select id="qb-domain" style="padding:8px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;background:var(--paper);">
+      <select id="qb-domain" style="padding:8px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;background:var(--paper);" onchange="updateQBDifficultyBadge()">
         <option value="">— auto-suggested from text —</option>
       </select>
+      <span id="qbDifficultyBadge" style="display:none;margin-top:5px;font-size:10.5px;font-weight:700;font-family:'JetBrains Mono',monospace;padding:2px 8px;border-radius:20px;color:#fff;"></span>
     </div>
   </div>
   <div class="field" style="margin-top:12px;max-width:340px;">
@@ -829,6 +842,10 @@ const TPL_B64 = "UEsDBBQABgAIAAAAIQDJxRDztAEAALcHAAATAAgCW0NvbnRlbnRfVHlwZXNdLnh
 const DOMAINS=['Remembering','Understanding','Application','Analysis','Evaluating','Creating'];
 const ABBR={Remembering:'R',Understanding:'U',Application:'App',Analysis:'An',Evaluating:'Ev',Creating:'C'};
 const DCOLOR={Remembering:'#7a3b4e',Understanding:'#4f6b3a',Application:'#2f5f6b',Analysis:'#7a5c2e',Evaluating:'#5c4a8a',Creating:'#8a4a2f'};
+// DepEd standard domain % distribution and difficulty mapping
+const DOMAIN_PRESET_PCT={Remembering:30,Understanding:20,Application:20,Analysis:10,Evaluating:10,Creating:10};
+const DOMAIN_DIFFICULTY={Remembering:'Easy',Understanding:'Easy to Average',Application:'Average',Analysis:'Average',Evaluating:'Difficult',Creating:'Difficult'};
+const DIFF_COLOR={'Easy':'#4f6b3a','Easy to Average':'#7a8f3a','Average':'#a8862f','Difficult':'#a8531f'};
 const DEF_VERBS={
   Remembering:['cite','count','define','draw','enumerate','identify','label','list','locate','match','memorize','name','outline','quote','recall','recite','recognize','record','repeat','reproduce','select','sequence','state','tabulate','tell','trace'],
   Understanding:['associate','classify','compare','contrast','convert','describe','differentiate','discuss','distinguish','estimate','explain','express','extend','generalize','indicate','infer','paraphrase','predict','restate','review','rewrite','summarize','translate'],
@@ -855,12 +872,12 @@ let comps=[];
    SETUP REQUIRED: paste your own Firebase project config below.
    See the separate "Firebase Setup Guide" document for exact steps. */
 const firebaseConfig = {
-  apiKey: "AIzaSyBxZRg7NBXfeAyv6-lvqK5n25YYCcn93ys",
-  authDomain: "snhs-tos-generator.firebaseapp.com",
-  projectId: "snhs-tos-generator",
-  storageBucket: "snhs-tos-generator.firebasestorage.app",
-  messagingSenderId: "118810613515",
-  appId: "1:118810613515:web:e23d5a5992f0bff60ff40e"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
 const ALLOWED_EMAIL_DOMAIN = "deped.gov.ph"; // change to your school's email domain
 
@@ -1203,6 +1220,13 @@ function apportion(weights,total){
 }
 
 /* ── GENERATE ── */
+let distMode='objective'; // 'objective' | 'preset'
+function setDistMode(mode){
+  distMode=mode;
+  document.getElementById('distMode-objective').classList.toggle('active', mode==='objective');
+  document.getElementById('distMode-preset').classList.toggle('active', mode==='preset');
+}
+
 function generateTOS(){
   const errEl=document.getElementById('genError'); errEl.style.display='none';
   if(comps.length===0){errEl.textContent='Add at least one competency.';errEl.style.display='block';return;}
@@ -1223,11 +1247,26 @@ function generateTOS(){
       const N=domList.length;
       domList.forEach((d,pos)=>{domWeights[d]+=(N-pos);});
     });
-    const domW=DOMAINS.map(d=>domWeights[d]);
+
+    let domW;
+    if(distMode==='preset'){
+      // DepEd preset % split — applied ONLY to domains actually present (weight>0) for this row,
+      // renormalized so those active domains sum to 100% of the row's items.
+      const activeDoms = DOMAINS.filter(d=>domWeights[d]>0);
+      if(activeDoms.length===0){
+        domW = DOMAINS.map(()=>0);
+      } else {
+        const activeSum = activeDoms.reduce((a,d)=>a+DOMAIN_PRESET_PCT[d],0);
+        domW = DOMAINS.map(d=> activeDoms.includes(d) ? (DOMAIN_PRESET_PCT[d]/activeSum) : 0);
+      }
+    } else {
+      domW = DOMAINS.map(d=>domWeights[d]);
+    }
+
     const rowItems=itemsPerRow[i];
     const domItems=apportion(domW,rowItems);
     const domMap={};const placement=[];
-    DOMAINS.forEach((d,di)=>{domMap[d]=domItems[di];if(domItems[di]>0){const s=counter,e=counter+domItems[di]-1;placement.push(`${ABBR[d]} [${s}${domItems[di]>1?'-'+e:''}]`);counter=e+1;}});
+    DOMAINS.forEach((d,di)=>{domMap[d]=domItems[di];if(domItems[di]>0){const s=counter,e=counter+domItems[di]-1;placement.push(`${ABBR[d]} [${s}${domItems[di]>1?'-'+e:''}] · ${DOMAIN_DIFFICULTY[d]}`);counter=e+1;}});
     return{label:c.label,lessons:c.lessons||'',objectives:c.objs.filter(o=>o.trim()),days:parseFloat(c.days)||0,items:rowItems,pct:c.days/totalDays,domains:domMap,placement:placement.join('\n')};
   });
   tosData={rows,target,totalDays,totalItems:rows.reduce((a,r)=>a+r.items,0)};
@@ -1718,6 +1757,16 @@ function populateQBDomainSelect(){
   sel.innerHTML='<option value="">— auto-suggested from text —</option>' +
     DOMAINS.map(d=>`<option value="${d}">${ABBR[d]} – ${d}</option>`).join('');
 }
+function updateQBDifficultyBadge(){
+  const domSel=document.getElementById('qb-domain');
+  const badge=document.getElementById('qbDifficultyBadge');
+  const d=domSel.value;
+  if(!d){ badge.style.display='none'; return; }
+  const diff=DOMAIN_DIFFICULTY[d];
+  badge.textContent='Difficulty: '+diff;
+  badge.style.background=DIFF_COLOR[diff];
+  badge.style.display='inline-block';
+}
 function populateQBDomainFilters(){
   const sel=document.getElementById('qbFilterDomain');
   if(sel.options.length<=1){
@@ -1728,9 +1777,10 @@ function populateQBDomainFilters(){
 /* Auto-suggest domain as the stem is typed */
 document.getElementById('qb-stem').addEventListener('input', ()=>{
   const domSel=document.getElementById('qb-domain');
-  if(domSel.value) return; // don't override a manual choice
+  if(domSel.value){ updateQBDifficultyBadge(); return; } // don't override a manual choice
   const matches=classifyAll(document.getElementById('qb-stem').value);
   if(matches.length>0) domSel.value=matches[0];
+  updateQBDifficultyBadge();
 });
 
 /* Competency datalist: pulled from current TOS comps + existing bank entries */
@@ -1766,6 +1816,7 @@ function clearQBForm(){
   document.getElementById('qb-pairs').innerHTML='';
   addPairRow(); addPairRow();
   document.getElementById('qbFormMsg').textContent='';
+  document.getElementById('qbDifficultyBadge').style.display='none';
 }
 
 function saveQuestion(){
@@ -1821,6 +1872,7 @@ function editQuestion(id){
   document.getElementById('qb-competency').value=q.competency||'';
   document.getElementById('qb-lesson').value=q.lesson||'';
   document.getElementById('qb-domain').value=q.domain||'';
+  updateQBDifficultyBadge();
   document.getElementById('qb-stem').value=q.stem||'';
   if(q.type==='mcq'){
     document.getElementById('qb-optA').value=q.optA||'';
@@ -1895,23 +1947,26 @@ function renderBankTable(){
 
   wrap.innerHTML = order.map(label=>{
     const qs=groups[label];
-    const rows = qs.map(q=>`
+    const rows = qs.map(q=>{
+      const diff = q.domain ? DOMAIN_DIFFICULTY[q.domain] : null;
+      return `
       <tr>
         <td><span class="qb-type-badge" style="background:${QB_TYPE_COLOR[q.type]}">${QB_TYPE_LABEL[q.type]}</span></td>
         <td>${esc(q.lesson)||'<span style="color:#c0b090;">—</span>'}</td>
         <td>${q.domain?`${ABBR[q.domain]} – ${esc(q.domain)}`:'<span style="color:var(--warn);">none</span>'}</td>
+        <td>${diff?`<span class="qb-type-badge" style="background:${DIFF_COLOR[diff]}">${diff}</span>`:'<span style="color:#c0b090;">—</span>'}</td>
         <td>${esc((q.stem||'').slice(0,90))}${(q.stem||'').length>90?'…':''}</td>
         <td class="qb-actions">
           <button class="edit" onclick="editQuestion('${q.id}')" title="Edit">✏️</button>
           <button class="del" onclick="deleteQuestion('${q.id}')" title="Delete">🗑️</button>
         </td>
-      </tr>`).join('');
+      </tr>`;}).join('');
     return `<details class="qb-group">
       <summary><span>${esc(label)}</span><span class="qb-group-count">${qs.length} item${qs.length>1?'s':''}</span></summary>
       <div class="qb-group-body">
         <div class="qb-table-scroll">
           <table class="qbtbl">
-            <thead><tr><th>Type</th><th>Lesson</th><th>Domain</th><th>Question</th><th></th></tr></thead>
+            <thead><tr><th>Type</th><th>Lesson</th><th>Domain</th><th>Difficulty</th><th>Question</th><th></th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
         </div>
