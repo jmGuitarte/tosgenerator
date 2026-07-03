@@ -61,7 +61,7 @@ h1{font-family:'Source Serif 4',serif;font-size:clamp(24px,3.5vw,36px);font-weig
   box-shadow:0 2px 10px -2px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.6);
 }
 .app-tab:hover:not(.active){background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.3);}
-.view{display:none;}
+.view{display:none;max-width:100%;overflow-x:hidden;}
 .view.active{display:block;}
 /* ── Question Bank ── */
 .qb-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:13px;}
@@ -78,7 +78,7 @@ h1{font-family:'Source Serif 4',serif;font-size:clamp(24px,3.5vw,36px);font-weig
 .qb-filter-bar{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-end;}
 .qb-filter-bar .field{min-width:160px;}
 .qb-filter-bar select,.qb-filter-bar input{padding:7px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:12.5px;font-family:'Inter',sans-serif;background:var(--paper);}
-.qb-table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px;}
+.qb-table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px;max-width:100%;}
 table.qbtbl{border-collapse:collapse;width:100%;min-width:920px;}
 table.qbtbl thead th{background:var(--maroon);color:#fff;padding:8px 10px;font-size:11px;font-weight:700;text-align:left;border:1px solid rgba(255,255,255,.15);white-space:nowrap;}
 table.qbtbl td{border:1px solid var(--line-soft);padding:7px 9px;font-size:12px;vertical-align:top;}
@@ -91,12 +91,14 @@ table.qbtbl td{border:1px solid var(--line-soft);padding:7px 9px;font-size:12px;
 .assembled-q{border:1px solid var(--line-soft);border-radius:8px;padding:10px 13px;margin-bottom:9px;background:#fffefb;}
 .assembled-q .qnum{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--maroon-deep);margin-right:6px;}
 /* ── Question Bank: collapsible groups ── */
-.qb-group{border:1px solid var(--line);border-radius:10px;margin-bottom:10px;overflow:hidden;}
+.qb-group{border:1px solid var(--line);border-radius:10px;margin-bottom:10px;overflow:hidden;width:100%;max-width:100%;box-sizing:border-box;}
 .qb-group>summary{
   padding:11px 16px;background:var(--paper-deep);cursor:pointer;list-style:none;
   display:flex;align-items:center;justify-content:space-between;gap:10px;
   font-weight:700;font-size:13.5px;color:var(--maroon-deep);font-family:'Source Serif 4',serif;
+  min-width:0;width:100%;box-sizing:border-box;
 }
+.qb-group>summary>span:first-child{min-width:0;overflow-wrap:break-word;word-break:break-word;}
 .qb-group>summary::-webkit-details-marker{display:none;}
 .qb-group>summary::before{content:'▸';font-family:'Inter',sans-serif;font-size:11px;color:#8a7a5c;margin-right:2px;}
 .qb-group[open]>summary::before{content:'▾';}
@@ -104,12 +106,13 @@ table.qbtbl td{border:1px solid var(--line-soft);padding:7px 9px;font-size:12px;
   font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:#fff;
   background:var(--maroon);padding:2px 10px;border-radius:20px;flex-shrink:0;
 }
-.qb-group-body{background:#fff;}
+.qb-group-body{background:#fff;width:100%;max-width:100%;box-sizing:border-box;}
+#qbGroups{width:100%;max-width:100%;}
 /* ── Auth bar ── */
 .auth-bar{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap;}
 .auth-signin-btn{
-  display:flex;align-items:center;gap:8px;background:#fff;color:#3c3c3c;border:none;border-radius:8px;
-  padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;
+  display:flex;align-items:center;justify-content:center;gap:8px;background:#fff;color:#3c3c3c;border:none;border-radius:8px;
+  width:200px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;
   box-shadow:0 2px 6px rgba(0,0,0,.15);transition:.14s;
 }
 .auth-signin-btn:hover{box-shadow:0 3px 10px rgba(0,0,0,.22);}
@@ -188,7 +191,7 @@ table.qbtbl td{border:1px solid var(--line-soft);padding:7px 9px;font-size:12px;
 @media(max-width:500px){.grid-4{grid-template-columns:1fr;}}
 .field{display:flex;flex-direction:column;gap:5px;}
 .field label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a7a5c;}
-.field input[type=text],.field input[type=number]{padding:8px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:13.5px;font-family:'Inter',sans-serif;transition:.14s;background:var(--paper);}
+.field input[type=text],.field input[type=number]{width:100%;box-sizing:border-box;padding:8px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:13.5px;font-family:'Inter',sans-serif;transition:.14s;background:var(--paper);}
 .field input:focus{outline:none;border-color:var(--gold);background:#fff;}
 
 /* ── Term + SA selector ── */
@@ -258,12 +261,17 @@ table.ctbl td.num-cell{text-align:center;vertical-align:middle;}
 .banner.warn{background:#fdf0e8;border:1px solid #f0c9a8;color:var(--warn);}
 .banner.ok{background:#eaf4ee;border:1px solid #bfe0cb;color:var(--good);}
 /* Verb dictionary */
-details.verb-card{margin-top:20px;}
-details.verb-card>summary{padding:13px 20px;background:#fff;border:1px solid var(--line);border-radius:10px;cursor:pointer;font-weight:700;font-size:14px;color:var(--maroon-deep);list-style:none;display:flex;align-items:center;justify-content:space-between;}
-details.verb-card>summary::after{content:'▸';font-size:11px;color:#8a7a5c;}
-details.verb-card[open]>summary{border-radius:10px 10px 0 0;border-bottom:none;}
+details.verb-card{margin-top:20px;width:100%;box-sizing:border-box;}
+details.verb-card>summary{padding:22px 24px;background:#fff;border:1px solid var(--line);border-radius:14px;cursor:pointer;font-weight:700;font-size:14px;color:var(--maroon-deep);list-style:none;display:flex;align-items:center;justify-content:space-between;width:100%;box-sizing:border-box;box-shadow:var(--shadow);}
+details.verb-card>summary::-webkit-details-marker{display:none;}
+details.verb-card>summary::marker{content:'';}
+details.verb-card>summary::after{content:'▸';font-family:'Inter',sans-serif;font-size:12px;color:#8a7a5c;margin-left:8px;flex-shrink:0;}
 details.verb-card[open]>summary::after{content:'▾';}
-.verb-body{background:#fff;border:1px solid var(--line);border-top:none;border-radius:0 0 10px 10px;padding:18px;}
+details.verb-card>summary::after{content:'▸';font-size:11px;color:#8a7a5c;}
+details.verb-card[open]>summary{border-radius:14px 14px 0 0;border-bottom:none;}
+details.verb-card[open]>summary::after{content:'▾';}
+.verb-body{background:#fff;border:1px solid var(--line);border-top:none;border-radius:0 0 14px 14px;padding:18px;box-shadow:var(--shadow);}
+#addQuestionBody{padding:22px 24px;}
 .domain-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;}
 @media(max-width:900px){.domain-grid{grid-template-columns:repeat(2,1fr);}}
 .domain-box{border:1px solid var(--line-soft);border-radius:8px;overflow:hidden;}
@@ -634,18 +642,18 @@ table.tbl-tos tr.total-row td{background:var(--paper-deep);font-weight:700;}
   <p class="card-title">⑦ AI Prompt — Test Question Generator</p>
   <p class="card-desc">This prompt is built programmatically from your TOS data. Copy it into ChatGPT, Copilot, DeepSeek, or Gemini to generate aligned test questions. No AI is used in building this prompt — it is assembled entirely from the table above.</p>
   <div class="prompt-wrap">
-    <textarea class="prompt-ta" id="promptTA" readonly></textarea>
+    <textarea class="prompt-ta" id="promptTA"></textarea>
     <button class="copy-btn" id="copyBtn" onclick="copyPrompt()">Copy</button>
   </div>
   <div class="prompt-tools">
     <button class="btn btn-sm" onclick="buildPrompt('full')">Full prompt (all details)</button>
     <button class="btn btn-sm" onclick="buildPrompt('compact')">Compact prompt</button>
     <button class="btn btn-sm" onclick="buildPrompt('filipino')">Tagalog version</button>
-    <div class="field" style="width:150px;">
+    <div class="field" style="width:200px;">
       <label>PISA pts / sub-item</label>
       <input type="number" id="pisaPointsPerSub" min="1" step="1" value="1" oninput="buildPrompt(lastPromptMode)">
     </div>
-    <div class="field" style="width:150px;">
+    <div class="field" style="width:200px;">
       <label>Open-ended points</label>
       <input type="number" id="oePoints" min="1" step="1" value="5" oninput="buildPrompt(lastPromptMode)">
     </div>
@@ -658,9 +666,9 @@ table.tbl-tos tr.total-row td{background:var(--paper-deep);font-weight:700;}
 <div class="view" id="view-bank">
 
 <!-- Question Bank: Add Question -->
-<details class="verb-card">
+<details class="verb-card" id="addQuestionCard">
   <summary>📚 Add a Question to the Bank <span style="font-size:12px;font-weight:400;color:#9a8e76;margin-left:8px;">(click to expand)</span></summary>
-  <div class="verb-body">
+  <div class="verb-body" id="addQuestionBody">
   <p class="card-desc">Tag each question with a competency and domain so it can be automatically matched to a generated TOS. Domain is auto-suggested from your question text — override it anytime.</p>
   <div class="qb-type-tabs">
     <button class="qb-type-tab active" id="qbtab-mcq" onclick="setQBType('mcq')">Multiple Choice</button>
@@ -1472,14 +1480,14 @@ function buildPrompt(mode){
 
   if(mode==='full'){
     prompt += `You are a DepEd-aligned assessment item writer for ${level}.\n`;
-    prompt += `Generate a ${totalItems}-item test based on the Table of Specifications below: ${mcqCount} multiple-choice questions (4 options: A, B, C, D) PLUS 1 PISA-like question (item #${pisaNum}) and 1 open-ended question (item #${oeNum}) — these two are already counted within the ${totalItems} total.\n\n`;
+    prompt += `Generate a ${totalItems}-item test based on the Table of Specifications below: ${mcqCount} test items — choose the FORMAT of each (multiple-choice, true/false, or matching type) based on what best fits that objective's action verb and content, do NOT default every item to multiple-choice — PLUS 1 PISA-like question (item #${pisaNum}) and 1 open-ended question (item #${oeNum}) — these two are already counted within the ${totalItems} total.\n\n`;
     prompt += `═══════════════════════════════════════════\n`;
     prompt += `SCHOOL: ${school}\n`;
     prompt += `SUBJECT: ${subject}\n`;
     prompt += `GRADE LEVEL & SECTION: ${grade}\n`;
     prompt += `EXAMINATION: ${termLabel}\n`;
     prompt += `TEACHER: ${teacher}\n`;
-    prompt += `TOTAL ITEMS: ${totalItems} (${mcqCount} MCQ + 1 PISA-like + 1 Open-Ended)\n`;
+    prompt += `TOTAL ITEMS: ${totalItems} (${mcqCount} items — mixed MCQ / True-False / Matching, as fitting + 1 PISA-like + 1 Open-Ended)\n`;
     prompt += `TOTAL TEACHING DAYS: ${totalDays}\n`;
     prompt += `═══════════════════════════════════════════\n\n`;
     prompt += `COMPETENCIES, OBJECTIVES, AND ITEM DISTRIBUTION:\n\n`;
@@ -1495,7 +1503,11 @@ function buildPrompt(mode){
     prompt += `═══════════════════════════════════════════\n\n`;
     prompt += `INSTRUCTIONS:\n`;
     prompt += `1. Write all questions in clear, simple English appropriate for ${grade} students.\n`;
-    prompt += `2. Each question must have exactly 4 options: A, B, C, D. Only one answer is correct.\n`;
+    prompt += `2. Choose the item FORMAT that best fits each objective's action verb and content — do not default everything to multiple-choice. Guide:\n`;
+    prompt += `   • Multiple-choice (4 options: A–D, one correct) — fits most Remembering, Understanding, Application, and Evaluating items.\n`;
+    prompt += `   • True/False — fits quick Remembering or Understanding checks (state a fact/definition, ask True or False).\n`;
+    prompt += `   • Matching type — fits Remembering items pairing terms/definitions/examples, or Understanding items pairing concepts to categories.\n`;
+    prompt += `   Mix formats naturally across the test rather than using one format throughout. Every item must still be objectively scorable with one clearly correct answer (or answer set, for matching). Label each item with its format in brackets, e.g. "1. [Multiple Choice]", "2. [True/False]", "3. [Matching Type]".\n`;
     prompt += `3. Align each question to the cognitive domain specified:\n`;
     prompt += `   • Remembering — recall, identify, name, list\n`;
     prompt += `   • Understanding — explain, describe, distinguish, classify\n`;
@@ -1503,9 +1515,9 @@ function buildPrompt(mode){
     prompt += `   • Analysis — analyze, compare, examine, differentiate\n`;
     prompt += `   • Evaluating — judge, assess, defend, justify\n`;
     prompt += `   • Creating — design, formulate, construct, propose\n`;
-    prompt += `4. Number the ${mcqCount} multiple-choice questions 1 to ${mcqCount} following the Item Placement specified above.\n`;
+    prompt += `4. Number the ${mcqCount} items 1 to ${mcqCount} following the Item Placement specified above.\n`;
     prompt += `5. Do not repeat or minimally paraphrase questions.\n`;
-    prompt += `6. After item ${mcqCount}, continue numbering with item #${pisaNum} (PISA-like) and item #${oeNum} (Open-Ended) — see specs below. Then provide a separate ANSWER KEY section listing the correct answers for items 1–${mcqCount} (e.g. 1-A, 2-C, ...).\n`;
+    prompt += `6. After item ${mcqCount}, continue numbering with item #${pisaNum} (PISA-like) and item #${oeNum} (Open-Ended) — see specs below. Then provide a separate ANSWER KEY section listing the correct answer for items 1–${mcqCount}, formatted per item type (e.g. "1-A" for multiple-choice, "2-True" for true/false, "3: Term1→Definition1, Term2→Definition2" for matching).\n`;
     prompt += `\n`;
     prompt += `ITEM #${pisaNum} — PISA-like Question (counted within the ${totalItems} total, NOT extra)\n`;
     prompt += `   • Provide a short reading passage, data table, graph, or real-world scenario.\n`;
@@ -1521,25 +1533,26 @@ function buildPrompt(mode){
     prompt += `   • Include a SIMPLE scoring rubric (3 short criteria, easy to apply — not a full analytic rubric).\n`;
     prompt += `\n`;
     prompt += `Place item #${pisaNum} and item #${oeNum} immediately after item #${mcqCount}, before the Answer Key. Do NOT add these as bonus items beyond the ${totalItems} total.\n`;
+    prompt += `\nNote: "${totalItems} total items" refers to the number of questions, not points. Item #${pisaNum} and item #${oeNum} are each still exactly ONE item apiece, even though they are worth more than 1 point — do not split them into multiple numbered items to match their point value.\n`;
 
   } else if(mode==='compact'){
-    prompt += `Generate a ${totalItems}-item test for ${subject}, ${grade}, ${termLabel}: ${mcqCount} multiple-choice (A/B/C/D, items 1–${mcqCount}) + 1 PISA-like question (item #${pisaNum}) + 1 open-ended question (item #${oeNum}). The last two are already included in the ${totalItems} total, not extra.\n\n`;
+    prompt += `Generate a ${totalItems}-item test for ${subject}, ${grade}, ${termLabel}: ${mcqCount} items (items 1–${mcqCount}) + 1 PISA-like question (item #${pisaNum}) + 1 open-ended question (item #${oeNum}). The last two are already included in the ${totalItems} total, not extra.\nChoose each item's format (multiple-choice A/B/C/D, true/false, or matching type) based on what fits the objective's verb — don't default all to multiple-choice. Mix formats naturally. Label each item's format in brackets, e.g. "1. [Multiple Choice]".\n\n`;
     rows.forEach((r,i)=>{
       const domSummary=DOMAINS.filter(d=>r.domains[d]).map(d=>`${ABBR[d]}:${r.domains[d]}`).join(', ');
       prompt += `${i+1}. ${r.label} — ${r.items} items [${domSummary}]\n`;
       r.objectives.forEach(o=>prompt += `   • ${o}\n`);
       prompt += `   Placement: ${r.placement.replace(/\n/g,', ')}\n\n`;
     });
-    prompt += `Include an answer key for items 1–${mcqCount}. Align question difficulty to the domain (R=recall, U=explain, App=apply, An=analyze, Ev=evaluate, C=create).\n`;
-    prompt += `\nItem #${pisaNum} = PISA-like (scenario/data + 2+ sub-items, Analysis/Evaluating level, scored at ${pisaPtsPerSub} point${pisaPtsPerSub>1?'s':''} per sub-item). Item #${oeNum} = open-ended/constructed-response worth ${oePts} point${oePts>1?'s':''} (SIMPLE rubric, 3 short criteria, highest domain in TOS). Both placed before the Answer Key, within the ${totalItems} total — not additional.`;
+    prompt += `Include an answer key for items 1–${mcqCount}, formatted per item type (e.g. 1-A for MCQ, 2-True for T/F, pair list for matching). Align question difficulty to the domain (R=recall, U=explain, App=apply, An=analyze, Ev=evaluate, C=create).\n`;
+    prompt += `\nItem #${pisaNum} = PISA-like (scenario/data + 2+ sub-items, Analysis/Evaluating level, scored at ${pisaPtsPerSub} point${pisaPtsPerSub>1?'s':''} per sub-item). Item #${oeNum} = open-ended/constructed-response worth ${oePts} point${oePts>1?'s':''} (SIMPLE rubric, 3 short criteria, highest domain in TOS). Both placed before the Answer Key, within the ${totalItems} total — not additional. (Note: "${totalItems} total" = number of items, not points — each is still one item despite being worth more than 1 point.)`;
 
   } else if(mode==='filipino'){
     prompt += `Ikaw ay isang tagapagsulat ng mga pagsubok na nakahanay sa kurikulum ng DepEd para sa ${level}.\n`;
-    prompt += `Gumawa ng kabuuang ${totalItems} na aytem batay sa Table of Specifications sa ibaba: ${mcqCount} multiple-choice na tanong (4 pagpipilian: A, B, C, D — mga aytem 1–${mcqCount}) + 1 PISA-like na tanong (aytem #${pisaNum}) + 1 bukas na tanong (aytem #${oeNum}). Ang huling dalawa ay KASAMA na sa ${totalItems} total, hindi dagdag.\n\n`;
+    prompt += `Gumawa ng kabuuang ${totalItems} na aytem batay sa Table of Specifications sa ibaba: ${mcqCount} na aytem (mga aytem 1–${mcqCount}) + 1 PISA-like na tanong (aytem #${pisaNum}) + 1 bukas na tanong (aytem #${oeNum}). Ang huling dalawa ay KASAMA na sa ${totalItems} total, hindi dagdag.\nPiliin ang FORMAT ng bawat aytem (multiple-choice A/B/C/D, true/false, o matching type) base sa angkop sa berbo/kakayahan ng layunin — huwag gawing lahat multiple-choice. Ihalo ang mga format. Markahan ang bawat aytem ng format nito, hal. "1. [Multiple Choice]".\n\n`;
     prompt += `ASIGNATURA: ${subject}\n`;
     prompt += `BAITANG AT SEKSYON: ${grade}\n`;
     prompt += `PAGSUBOK: ${termLabel}\n`;
-    prompt += `KABUUANG AYTEM: ${totalItems} (${mcqCount} MCQ + 1 PISA-like + 1 Bukas na Tanong)\n\n`;
+    prompt += `KABUUANG AYTEM: ${totalItems} (${mcqCount} halo-halong MCQ/True-False/Matching + 1 PISA-like + 1 Bukas na Tanong)\n\n`;
     prompt += `MGA KAKAYAHAN AT DISTRIBUSYON NG AYTEM:\n\n`;
     rows.forEach((r,i)=>{
       prompt += `${i+1}. ${r.label}\n`;
@@ -1550,10 +1563,10 @@ function buildPrompt(mode){
     });
     prompt += `PANUTO:\n`;
     prompt += `1. Isulat ang mga tanong sa malinaw na Filipino o English na naaangkop sa ${grade}.\n`;
-    prompt += `2. Bawat multiple-choice na tanong (aytem 1–${mcqCount}) ay may 4 na pagpipilian (A, B, C, D). Iisa lamang ang tamang sagot.\n`;
+    prompt += `2. Piliin ang pinaka-angkop na format bawat aytem: Multiple-choice (4 pagpipilian, iisa ang tama) para sa karamihan; True/False para sa mabilis na pagsusuri ng katotohanan/kahulugan; Matching type para sa pagtutugma ng mga termino/kahulugan/halimbawa. Iisa pa rin ang tamang sagot bawat aytem.\n`;
     prompt += `3. Ihanay ang bawat tanong sa tamang antas ng kakayahan (Paggunita, Pag-unawa, Paglalapat, Pagsusuri, Pagsasuri, Paglikha).\n`;
     prompt += `4. Gamitin ang item placement na nakalagay sa TOS bilang gabay sa pagbibilang ng mga tanong 1 hanggang ${mcqCount}.\n`;
-    prompt += `5. Pagkatapos ng aytem #${mcqCount}, ipagpatuloy ang bilang sa aytem #${pisaNum} (PISA-like) at aytem #${oeNum} (Bukas na Tanong), pagkatapos ay magbigay ng hiwalay na SUSI SA SAGOT para sa mga aytem 1–${mcqCount}.\n`;
+    prompt += `5. Pagkatapos ng aytem #${mcqCount}, ipagpatuloy ang bilang sa aytem #${pisaNum} (PISA-like) at aytem #${oeNum} (Bukas na Tanong), pagkatapos ay magbigay ng hiwalay na SUSI SA SAGOT para sa mga aytem 1–${mcqCount}, ayon sa format ng bawat aytem.\n`;
     prompt += `\n`;
     prompt += `AYTEM #${pisaNum} — PISA-like na Tanong (kasama sa ${totalItems} total, hindi dagdag)\n`;
     prompt += `   • Maglaan ng maikling sipi, talaan ng datos, graph, o tunay na sitwasyon.\n`;
@@ -1564,6 +1577,7 @@ function buildPrompt(mode){
     prompt += `   • Nangangailangan ng nakasulat na sagot, paliwanag, o pagpapatunay.\n`;
     prompt += `   • Isama ang ISANG SIMPLENG rubric ng pagmamarka (3 maikling pamantayan lamang, hindi kumplikado).\n`;
     prompt += `Ilagay ang aytem #${pisaNum} at aytem #${oeNum} kaagad pagkatapos ng aytem #${mcqCount}, bago ang Susi sa Sagot. HUWAG idagdag bilang bonus na labas sa ${totalItems} total.\n`;
+    prompt += `\nPaalala: ang "${totalItems} kabuuang aytem" ay bilang ng mga tanong, hindi puntos. Ang aytem #${pisaNum} at aytem #${oeNum} ay tig-iisang aytem lamang bawat isa, kahit na mas mataas sa 1 ang puntos nila — huwag hatiin sa maraming numero ang isang aytem base sa puntos nito.\n`;
   }
 
   document.getElementById('promptTA').value=prompt;
@@ -2146,7 +2160,7 @@ async function handleQBFile(file){
 const QB_AI_PROMPT_TEMPLATE = `You are helping a DepEd teacher convert an existing set of test questions into a structured spreadsheet format for a Question Bank tool.
 
 TARGET COLUMNS (in this exact order)
-Type | Competency | Domain | Question/Stem | Option A | Option B | Option C | Option D | Correct Answer | Rubric/Points | Matching Pairs
+Type | Competency | Lesson | Domain | Question/Stem | Option A | Option B | Option C | Option D | Correct Answer | Rubric/Points | Matching Pairs
 
 COLUMN RULES
 
@@ -2156,7 +2170,9 @@ Type — one of exactly these four lowercase values:
 - tf — true or false
 - matching — matching type
 
-Competency — the learning competency or topic the question belongs to. If the source material states it (e.g. a heading, LO number, or unit title), use that exact wording. If not stated, infer the most likely competency from the question content, and prefix it with [INFERRED] so the teacher knows to double-check it.
+Competency — the learning competency or topic the question belongs to. If the source material states it (e.g. a heading, LO number, or unit title), use that exact wording. If not stated, infer the most likely competency from the question content, and prefix it with [INFERRED] so the teacher knows to double-check it. Leave blank if only a Lesson is identifiable instead.
+
+Lesson — the specific lesson name or number the question came from (e.g. "Lesson 1.1"), if the source material states it (a heading, lesson number, or unit sub-title). Leave blank if not stated — do not infer this one, since Lesson is optional and only useful when explicitly labeled in the source. A question needs at least a Competency OR a Lesson, not necessarily both.
 
 Domain — one of exactly these six values, matched to Revised Bloom's Taxonomy:
 - Remembering — recall, identify, name, list, define, label
