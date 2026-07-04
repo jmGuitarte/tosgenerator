@@ -1460,7 +1460,7 @@ function renderCloudDraftsList(){
   if(cloudDrafts.length===0){ el.innerHTML='<div class="qb-empty">No saved TOS drafts yet.</div>'; return; }
   el.innerHTML=cloudDrafts.map(d=>{
     const dt=d.savedAt&&d.savedAt.toDate ? d.savedAt.toDate().toLocaleString([], {dateStyle:'medium',timeStyle:'short'}) : '';
-    const compCount=(d.state&&d.state.comps)?d.state.comps.length:0;
+    const compCount = d.compCount!==undefined ? d.compCount : ((d.state&&d.state.comps)?d.state.comps.length:0); // compCount is new; fall back for any older-format saved drafts
     return `<div class="admin-users-row">
       <div style="flex:1;">
         <div style="font-size:13px;font-weight:600;">${esc(d.title||'Untitled TOS')}</div>
@@ -1482,7 +1482,11 @@ async function saveCurrentDraftToCloud(){
     title: title.trim()||defaultTitle,
     subject: state.subject,
     grade: state.grade,
-    state,
+    compCount: (state.comps||[]).length, // stored separately since stateJSON isn't queryable/readable without parsing
+    // Stored as a JSON string, not a raw object: Firestore rejects nested arrays
+    // (each competency's "doms" field is an array of arrays, from multi-domain
+    // classification), and a string sidesteps that restriction entirely.
+    stateJSON: JSON.stringify(state),
     savedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
   try{
@@ -1502,7 +1506,8 @@ async function saveCurrentDraftToCloud(){
 function loadCloudDraft(id){
   const d=cloudDrafts.find(x=>x.id===id);
   if(!d) return;
-  applyState(d.state);
+  const state = d.stateJSON ? JSON.parse(d.stateJSON) : d.state; // stateJSON is the new format; d.state supports any older-format saved drafts
+  applyState(state);
   currentCloudDraftId=id;
   updateLoadedDraftBanner(d.title);
 }
