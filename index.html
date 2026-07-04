@@ -411,7 +411,6 @@ table.tbl-tos tr.total-row td{background:var(--paper-deep);font-weight:700;}
     </div>
     <div class="app-tabs">
       <div class="app-tab active" id="tabBuilder" onclick="setView('builder')">📋 TOS Builder</div>
-      <div class="app-tab" id="tabBank" onclick="setView('bank')">📚 Question Bank</div>
       <div class="app-tab" id="tabMaker" onclick="setView('maker')">🖊️ Test Maker</div>
       <div class="app-tab" id="tabReview" onclick="setView('review')" style="display:none;">🧑‍💼 Review Dashboard</div>
     </div>
@@ -654,206 +653,17 @@ table.tbl-tos tr.total-row td{background:var(--paper-deep);font-weight:700;}
 <section class="card" id="previewCard" style="display:none;">
   <p class="card-title">⑥ TOS Preview</p>
   <div class="tos-scroll"><table class="tbl-tos" id="tosTbl"></table></div>
-  <div id="typeLegend"></div>
   <div class="export-bar">
     <div class="stat-row" id="statRow"></div>
     <div style="display:flex;gap:9px;flex-wrap:wrap;">
-      <button class="btn btn-gold" onclick="pullFromBank()">📚 Pull Matching Questions from Bank</button>
       <button class="btn btn-primary" id="exportBtn" onclick="exportTOS()">⬇ Export TOS (.xlsx)</button>
       <button class="btn btn-primary" id="submitReviewBtn" onclick="submitForReview()" style="display:none;background:#5c4a8a;border-color:#5c4a8a;">📤 Submit for Review</button>
     </div>
   </div>
 </section>
 
-<!-- Assembled Test (from Question Bank) -->
-<section class="card" id="assembledCard" style="display:none;">
-  <p class="card-title">📝 Assembled Test — Pulled from Question Bank</p>
-  <p class="card-desc">Questions matched by competency and domain from your Question Bank, placed at the item numbers from the TOS.</p>
-  <div id="gapArea"></div>
-  <div id="assembledArea"></div>
-  <div class="btn-row">
-    <button class="btn btn-sm" onclick="downloadAssembledTest()">⬇ Download Assembled Test (.txt)</button>
-    <button class="btn btn-sm" onclick="downloadAssembledKey()">⬇ Download Answer Key (.txt)</button>
-  </div>
-</section>
-
-<!-- ⑦ AI Prompt Generator -->
-<section class="card" id="promptCard" style="display:none;">
-  <p class="card-title">⑦ AI Prompt — Test Question Generator</p>
-  <p class="card-desc">This prompt is built programmatically from your TOS data. Copy it into ChatGPT, Copilot, DeepSeek, or Gemini to generate aligned test questions. No AI is used in building this prompt — it is assembled entirely from the table above.</p>
-  <div class="prompt-wrap">
-    <textarea class="prompt-ta" id="promptTA"></textarea>
-    <button class="copy-btn" id="copyBtn" onclick="copyPrompt()">Copy</button>
-  </div>
-  <div class="prompt-tools">
-    <button class="btn btn-sm" onclick="buildPrompt('full')">Full prompt (all details)</button>
-    <button class="btn btn-sm" onclick="buildPrompt('compact')">Compact prompt</button>
-    <button class="btn btn-sm" onclick="buildPrompt('filipino')">Tagalog version</button>
-    <div class="field" style="width:200px;">
-      <label>PISA pts / sub-item</label>
-      <input type="number" id="pisaPointsPerSub" min="1" step="1" value="1" oninput="buildPrompt(lastPromptMode)">
-    </div>
-    <div class="field" style="width:200px;">
-      <label>Open-ended points</label>
-      <input type="number" id="oePoints" min="1" step="1" value="5" oninput="buildPrompt(lastPromptMode)">
-    </div>
-    <span class="prompt-hint">Paste into ChatGPT · Copilot · DeepSeek · Gemini</span>
-  </div>
-</section>
-
 </div><!-- /view-builder -->
 
-<div class="view" id="view-bank">
-
-<!-- Question Bank: Add Question -->
-<details class="verb-card" id="addQuestionCard">
-  <summary>📚 Add a Question to the Bank <span style="font-size:12px;font-weight:400;color:#9a8e76;margin-left:8px;">(click to expand)</span></summary>
-  <div class="verb-body" id="addQuestionBody">
-  <p class="card-desc">Tag each question with a competency and domain so it can be automatically matched to a generated TOS. Domain is auto-suggested from your question text — override it anytime.</p>
-  <div class="qb-type-tabs">
-    <button class="qb-type-tab active" id="qbtab-mcq" onclick="setQBType('mcq')">Multiple Choice</button>
-    <button class="qb-type-tab" id="qbtab-open" onclick="setQBType('open')">Open-Ended</button>
-    <button class="qb-type-tab" id="qbtab-tf" onclick="setQBType('tf')">True / False</button>
-    <button class="qb-type-tab" id="qbtab-matching" onclick="setQBType('matching')">Matching Type</button>
-  </div>
-
-  <div class="qb-grid">
-    <div class="field">
-      <label>Competency <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0a080;">(optional if Lesson is tagged)</span></label>
-      <input type="text" id="qb-competency" list="qbCompList" placeholder="Select or type a competency…">
-      <datalist id="qbCompList"></datalist>
-    </div>
-    <div class="field">
-      <label>Domain</label>
-      <select id="qb-domain" style="padding:8px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;background:var(--paper);" onchange="updateQBDifficultyBadge()">
-        <option value="">— auto-suggested from text —</option>
-      </select>
-      <span id="qbDifficultyBadge" style="display:none;margin-top:5px;font-size:10.5px;font-weight:700;font-family:'JetBrains Mono',monospace;padding:2px 8px;border-radius:20px;color:#fff;"></span>
-    </div>
-  </div>
-  <div class="field" style="margin-top:12px;max-width:340px;">
-    <label>Lesson <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0a080;">(optional — matches this to a competency's "Lesson(s) Covered" field)</span></label>
-    <input type="text" id="qb-lesson" list="qbLessonList" placeholder="e.g. Lesson 1.1">
-    <datalist id="qbLessonList"></datalist>
-  </div>
-
-  <div class="field" style="margin-top:12px;">
-    <label>Question / Item Stem</label>
-    <textarea id="qb-stem" rows="2" placeholder="Type the question…" style="width:100%;padding:8px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:13.5px;font-family:'Inter',sans-serif;background:var(--paper);resize:vertical;"></textarea>
-  </div>
-
-  <!-- MCQ fields -->
-  <div id="qb-fields-mcq" style="margin-top:12px;">
-    <div class="opt-row"><input type="radio" name="qbCorrect" value="A" checked><span style="font-weight:700;width:16px;">A</span><input type="text" id="qb-optA" placeholder="Option A"></div>
-    <div class="opt-row"><input type="radio" name="qbCorrect" value="B"><span style="font-weight:700;width:16px;">B</span><input type="text" id="qb-optB" placeholder="Option B"></div>
-    <div class="opt-row"><input type="radio" name="qbCorrect" value="C"><span style="font-weight:700;width:16px;">C</span><input type="text" id="qb-optC" placeholder="Option C"></div>
-    <div class="opt-row"><input type="radio" name="qbCorrect" value="D"><span style="font-weight:700;width:16px;">D</span><input type="text" id="qb-optD" placeholder="Option D"></div>
-    <span style="font-size:11.5px;color:#9a8e76;">Select the radio button next to the correct option.</span>
-  </div>
-
-  <!-- Open-ended fields -->
-  <div id="qb-fields-open" style="margin-top:12px;display:none;">
-    <div class="field">
-      <label>Scoring Rubric / Guide</label>
-      <textarea id="qb-rubric" rows="2" placeholder="e.g. 3 points: 1 for identifying the issue, 1 for explanation, 1 for a valid example" style="width:100%;padding:8px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;background:var(--paper);resize:vertical;"></textarea>
-    </div>
-  </div>
-
-  <!-- True/False fields -->
-  <div id="qb-fields-tf" style="margin-top:12px;display:none;">
-    <div class="opt-row"><input type="radio" name="qbTF" value="True" checked><span>True</span></div>
-    <div class="opt-row"><input type="radio" name="qbTF" value="False"><span>False</span></div>
-  </div>
-
-  <!-- Matching type fields -->
-  <div id="qb-fields-matching" style="margin-top:12px;display:none;">
-    <div id="qb-pairs"></div>
-    <button class="btn btn-sm" onclick="addPairRow()">+ Add pair</button>
-  </div>
-
-  <div class="btn-row">
-    <button class="btn btn-primary" onclick="saveQuestion()">Save Question to Bank</button>
-    <button class="btn btn-sm" onclick="clearQBForm()">Clear form</button>
-  </div>
-  <div id="qbFormMsg" style="font-size:12.5px;margin-top:8px;"></div>
-  </div>
-</details>
-
-<!-- Question Bank: Populate via AI -->
-<section class="card">
-  <p class="card-title">🤖 Populate Bank via AI</p>
-  <p class="card-desc">Paste your existing test questions below, then copy the combined prompt into ChatGPT, Copilot, DeepSeek, or Gemini. It returns a table you can paste into Excel and upload below.</p>
-  <div class="field">
-    <label>Your test questions</label>
-    <textarea id="qbAiQuestions" rows="6" placeholder="Paste your existing test questions here — any format works (numbered list, mixed types)…" style="width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;background:var(--paper);resize:vertical;"></textarea>
-  </div>
-  <div class="btn-row">
-    <button class="btn btn-primary" onclick="copyQBPrompt()" id="qbAiCopyBtn">📋 Copy Prompt + My Questions</button>
-  </div>
-  <div id="qbAiMsg" style="font-size:12.5px;margin-top:8px;"></div>
-</section>
-
-<!-- Question Bank: Bulk Upload -->
-<section class="card">
-  <p class="card-title">📥 Bulk Upload Questions</p>
-  <p class="card-desc">Upload an Excel file of questions, or download a blank template to fill out offline.</p>
-  <div class="dropzone" id="qbDropzone">
-    <div style="font-size:22px;margin-bottom:5px;">📄</div>
-    <div><strong>Click to upload</strong> or drag your .xlsx file here</div>
-    <input type="file" id="qbFileInput" accept=".xlsx,.xls">
-  </div>
-  <div id="qbFilePill"></div>
-  <div class="btn-row">
-    <button class="btn btn-sm" onclick="downloadQBTemplate()">Download blank question bank template</button>
-  </div>
-</section>
-
-<!-- Question Bank: Library -->
-<section class="card">
-  <div class="tbl-bar">
-    <div>
-      <p class="card-title">📖 Question Bank Library</p>
-      <p class="card-desc" style="margin:0;">Filter, review, or remove saved questions.</p>
-    </div>
-    <div style="display:flex;gap:8px;flex-shrink:0;">
-      <button class="draft-btn" style="color:var(--maroon-deep);border-color:var(--line);background:#fff;" onclick="saveBankFile()">💾 Export Bank</button>
-      <label class="draft-btn" style="color:var(--maroon-deep);border-color:var(--line);background:#fff;display:inline-block;">
-        📂 Import Bank
-        <input type="file" id="loadBankInput" accept=".json" style="display:none;">
-      </label>
-    </div>
-  </div>
-  <div class="qb-filter-bar">
-    <div class="field">
-      <label>Filter by competency</label>
-      <input type="text" id="qbFilterComp" oninput="renderBankTable()" placeholder="Type to filter…">
-    </div>
-    <div class="field">
-      <label>Filter by domain</label>
-      <select id="qbFilterDomain" onchange="renderBankTable()">
-        <option value="">All domains</option>
-      </select>
-    </div>
-    <div class="field">
-      <label>Filter by type</label>
-      <select id="qbFilterType" onchange="renderBankTable()">
-        <option value="">All types</option>
-        <option value="mcq">Multiple Choice</option>
-        <option value="open">Open-Ended</option>
-        <option value="tf">True / False</option>
-        <option value="matching">Matching Type</option>
-      </select>
-    </div>
-    <button class="btn btn-sm btn-danger" onclick="clearBank()">Clear entire bank</button>
-  </div>
-  <div class="btn-row" style="margin-top:0;margin-bottom:12px;">
-    <button class="btn btn-sm" onclick="expandAllQBGroups(true)">Expand all</button>
-    <button class="btn btn-sm" onclick="expandAllQBGroups(false)">Collapse all</button>
-  </div>
-  <div id="qbGroups"></div>
-</section>
-
-</div><!-- /view-bank -->
 
 <div class="view" id="view-maker">
 
@@ -1026,21 +836,14 @@ try{
   }
 }catch(err){ console.warn('Firebase not configured yet:', err); }
 
-let bank=[]; // question bank: [{id,type,competency,domain,stem,optA,optB,optC,optD,correct,rubric,tf,pairs}]
-let qbType='mcq';
-let qbEditingId=null; // if set, saveQuestion() updates instead of inserts
-
 /* ── VIEW / TAB SWITCHER ── */
 function setView(v){
   document.getElementById('tabBuilder').classList.toggle('active', v==='builder');
-  document.getElementById('tabBank').classList.toggle('active', v==='bank');
   document.getElementById('tabMaker').classList.toggle('active', v==='maker');
   document.getElementById('tabReview').classList.toggle('active', v==='review');
   document.getElementById('view-builder').classList.toggle('active', v==='builder');
-  document.getElementById('view-bank').classList.toggle('active', v==='bank');
   document.getElementById('view-maker').classList.toggle('active', v==='maker');
   document.getElementById('view-review').classList.toggle('active', v==='review');
-  if(v==='bank'){ refreshQBCompList(); renderBankTable(); populateQBDomainFilters(); }
   if(v==='maker'){ renderTestMaker(); }
   if(v==='review'){ loadSubmissionsForReview(); }
 }
@@ -1457,41 +1260,8 @@ function renderPreview({rows,target,totalDays,totalItems,domainRanges,mcqCount,p
   h+=`<td class="placement">Total: ${mcqCount} + 2 (#${pisaNum} PISA-like, #${oeNum} Open-Ended) = ${totalItems}</td></tr></tbody>`;
   tbl.innerHTML=h;
   document.getElementById('statRow').innerHTML=`<div class="stat">Competencies<b>${rows.length}</b></div><div class="stat">Total Days<b>${totalDays}</b></div><div class="stat">Target Items<b>${target}</b></div><div class="stat">Allocated<b>${mcqCount}</b></div>`;
-  renderTypeLegend(totDom,domainRanges,mcqCount,pisaNum,oeNum);
   const card=document.getElementById('previewCard');card.style.display='block';
   setTimeout(()=>card.scrollIntoView({behavior:'smooth',block:'start'}),100);
-  // Auto-build the full prompt and reveal prompt card
-  buildPrompt('full');
-  document.getElementById('promptCard').style.display='block';
-}
-
-function formatRanges(pairs){
-  // Merge a domain's item ranges into a compact display string, e.g. "1-5, 12-14"
-  return pairs.map(([s,e])=>s===e?`${s}`:`${s}-${e}`).join(', ');
-}
-
-function renderTypeLegend(totDom,domainRanges,mcqCount,pisaNum,oeNum){
-  const el=document.getElementById('typeLegend');
-  let rowsHtml='';
-  DOMAINS.forEach(d=>{
-    if(!totDom[d]) return; // skip domains with zero items in this TOS
-    rowsHtml+=`<div class="type-legend-row">
-      <div class="type-legend-dom"><span class="type-legend-badge" style="background:${DCOLOR[d]}">${ABBR[d]}</span>${d} (${totDom[d]} item${totDom[d]>1?'s':''})</div>
-      <div class="type-legend-range">#${esc(formatRanges(domainRanges[d]))}</div>
-      <div class="type-legend-suggest">${DOMAIN_TYPE_SUGGESTION[d]}</div>
-    </div>`;
-  });
-  rowsHtml+=`<div class="type-legend-row special">
-    <div class="type-legend-dom"><span class="type-legend-badge" style="background:#5c4a8a">PISA</span>PISA-like (1 item)</div>
-    <div class="type-legend-range">#${pisaNum}</div>
-    <div class="type-legend-suggest">Reading passage/data + 2 or more sub-items</div>
-  </div>`;
-  rowsHtml+=`<div class="type-legend-row special">
-    <div class="type-legend-dom"><span class="type-legend-badge" style="background:#8a4a2f">OE</span>Open-Ended (1 item)</div>
-    <div class="type-legend-range">#${oeNum}</div>
-    <div class="type-legend-suggest">Constructed response with a simple rubric</div>
-  </div>`;
-  el.innerHTML=`<div class="type-legend"><div class="type-legend-title">Suggested Item Type — by Domain</div>${rowsHtml}</div>`;
 }
 
 /* ── EXPORT ── */
@@ -1614,148 +1384,6 @@ function triggerDl(buf,name){
   setTimeout(()=>URL.revokeObjectURL(url),4000);
 }
 
-/* ── AI PROMPT BUILDER ── */
-function buildPrompt(mode){
-  if(!tosData){return;}
-  lastPromptMode=mode;
-  const oePts=parseInt(document.getElementById('oePoints').value)||5;
-  const pisaPtsPerSub=parseInt(document.getElementById('pisaPointsPerSub').value)||1;
-  const {rows,target,totalDays,totalItems}=tosData;
-  const subject=document.getElementById('si-subject').value.trim()||'[Subject]';
-  const grade=document.getElementById('si-grade').value.trim()||'[Grade Level & Section]';
-  const teacher=document.getElementById('si-teacher').value.trim()||'[Teacher]';
-  const level=document.getElementById('si-level').value;
-  const termNames=['1st Term','2nd Term','3rd Term'];
-  const termLabel=isExamCode(assess) ? `${termNames[term-1]} — Term ${term} Examination` : `${termNames[term-1]} (${assess})`;
-  const school=document.getElementById('si-school').value.trim();
-  // PISA-like and open-ended are counted WITHIN totalItems, not on top of it — reuse the same
-  // numbers already computed in generateTOS() so the legend and the prompt never disagree
-  const mcqCount=tosData.mcqCount;
-  const pisaNum=tosData.pisaNum;
-  const oeNum=tosData.oeNum;
-
-  let prompt='';
-
-  if(mode==='full'){
-    prompt += `You are a DepEd-aligned assessment item writer for ${level}.\n`;
-    prompt += `Generate a ${totalItems}-item test based on the Table of Specifications below: ${mcqCount} test items — choose the FORMAT of each (multiple-choice, true/false, or matching type) based on what best fits that objective's action verb and content, do NOT default every item to multiple-choice — PLUS 1 PISA-like question (item #${pisaNum}) and 1 open-ended question (item #${oeNum}) — these two are already counted within the ${totalItems} total.\n\n`;
-    prompt += `═══════════════════════════════════════════\n`;
-    prompt += `SCHOOL: ${school}\n`;
-    prompt += `SUBJECT: ${subject}\n`;
-    prompt += `GRADE LEVEL & SECTION: ${grade}\n`;
-    prompt += `EXAMINATION: ${termLabel}\n`;
-    prompt += `TEACHER: ${teacher}\n`;
-    prompt += `TOTAL ITEMS: ${totalItems} (${mcqCount} items — mixed MCQ / True-False / Matching, as fitting + 1 PISA-like + 1 Open-Ended)\n`;
-    prompt += `TOTAL TEACHING DAYS: ${totalDays}\n`;
-    prompt += `═══════════════════════════════════════════\n\n`;
-    prompt += `COMPETENCIES, OBJECTIVES, AND ITEM DISTRIBUTION:\n\n`;
-    rows.forEach((r,i)=>{
-      prompt += `${i+1}. COMPETENCY: ${r.label}\n`;
-      prompt += `   Learning Objectives:\n`;
-      r.objectives.forEach(o=>{ prompt += `   >> ${o}\n`; });
-      prompt += `   No. of Days: ${r.days} | Items: ${r.items} | Weight: ${(r.pct*100).toFixed(1)}%\n`;
-      prompt += `   Cognitive Domain Distribution:\n`;
-      DOMAINS.forEach(d=>{ if(r.domains[d]) prompt += `     • ${d} (${ABBR[d]}): ${r.domains[d]} item${r.domains[d]>1?'s':''}\n`; });
-      prompt += `   Item Placement: ${r.placement.replace(/\n/g,', ')}\n\n`;
-    });
-    prompt += `═══════════════════════════════════════════\n\n`;
-    prompt += `INSTRUCTIONS:\n`;
-    prompt += `1. Write all questions in clear, simple English appropriate for ${grade} students.\n`;
-    prompt += `2. Choose the item FORMAT that best fits each objective's action verb and content — do not default everything to multiple-choice. Guide:\n`;
-    prompt += `   • Multiple-choice (4 options: A–D, one correct) — fits most Remembering, Understanding, Application, and Evaluating items.\n`;
-    prompt += `   • True/False — fits quick Remembering or Understanding checks (state a fact/definition, ask True or False).\n`;
-    prompt += `   • Matching type — fits Remembering items pairing terms/definitions/examples, or Understanding items pairing concepts to categories.\n`;
-    prompt += `   Mix formats naturally across the test rather than using one format throughout. Every item must still be objectively scorable with one clearly correct answer (or answer set, for matching). Label each item with its format in brackets, e.g. "1. [Multiple Choice]", "2. [True/False]", "3. [Matching Type]".\n`;
-    prompt += `3. Align each question to the cognitive domain specified:\n`;
-    prompt += `   • Remembering — recall, identify, name, list\n`;
-    prompt += `   • Understanding — explain, describe, distinguish, classify\n`;
-    prompt += `   • Application — solve, apply, use, demonstrate\n`;
-    prompt += `   • Analysis — analyze, compare, examine, differentiate\n`;
-    prompt += `   • Evaluating — judge, assess, defend, justify\n`;
-    prompt += `   • Creating — design, formulate, construct, propose\n`;
-    prompt += `4. Number the ${mcqCount} items 1 to ${mcqCount} following the Item Placement specified above.\n`;
-    prompt += `5. Do not repeat or minimally paraphrase questions.\n`;
-    prompt += `6. After item ${mcqCount}, continue numbering with item #${pisaNum} (PISA-like) and item #${oeNum} (Open-Ended) — see specs below. Then provide a separate ANSWER KEY section listing the correct answer for items 1–${mcqCount}, formatted per item type (e.g. "1-A" for multiple-choice, "2-True" for true/false, "3: Term1→Definition1, Term2→Definition2" for matching).\n`;
-    prompt += `\n`;
-    prompt += `ITEM #${pisaNum} — PISA-like Question (counted within the ${totalItems} total, NOT extra)\n`;
-    prompt += `   • Provide a short reading passage, data table, graph, or real-world scenario.\n`;
-    prompt += `   • Write at least 2 sub-items (a, b, c) that require interpretation, inference, or application of the passage/data.\n`;
-    prompt += `   • Align to Analysis or Evaluating level.\n`;
-    prompt += `   • Context should be relevant to ${subject} and ${grade} learners.\n`;
-    prompt += `   • Scoring: ${pisaPtsPerSub} point${pisaPtsPerSub>1?'s':''} per sub-item (e.g. 3 sub-items = ${pisaPtsPerSub*3} points total for this item). State the per-sub-item answer key.\n`;
-    prompt += `\n`;
-    prompt += `ITEM #${oeNum} — Open-Ended Question (counted within the ${totalItems} total, worth ${oePts} point${oePts>1?'s':''})\n`;
-    prompt += `   • Require a written or constructed response (not multiple-choice).\n`;
-    prompt += `   • Should demand explanation, justification, or demonstration of understanding.\n`;
-    prompt += `   • Align to the highest cognitive domain appearing in the TOS.\n`;
-    prompt += `   • Include a SIMPLE scoring rubric (3 short criteria, easy to apply — not a full analytic rubric).\n`;
-    prompt += `\n`;
-    prompt += `Place item #${pisaNum} and item #${oeNum} immediately after item #${mcqCount}, before the Answer Key. Do NOT add these as bonus items beyond the ${totalItems} total.\n`;
-    prompt += `\nNote: "${totalItems} total items" refers to the number of questions, not points. Item #${pisaNum} and item #${oeNum} are each still exactly ONE item apiece, even though they are worth more than 1 point — do not split them into multiple numbered items to match their point value.\n`;
-
-  } else if(mode==='compact'){
-    prompt += `Generate a ${totalItems}-item test for ${subject}, ${grade}, ${termLabel}: ${mcqCount} items (items 1–${mcqCount}) + 1 PISA-like question (item #${pisaNum}) + 1 open-ended question (item #${oeNum}). The last two are already included in the ${totalItems} total, not extra.\nChoose each item's format (multiple-choice A/B/C/D, true/false, or matching type) based on what fits the objective's verb — don't default all to multiple-choice. Mix formats naturally. Label each item's format in brackets, e.g. "1. [Multiple Choice]".\n\n`;
-    rows.forEach((r,i)=>{
-      const domSummary=DOMAINS.filter(d=>r.domains[d]).map(d=>`${ABBR[d]}:${r.domains[d]}`).join(', ');
-      prompt += `${i+1}. ${r.label} — ${r.items} items [${domSummary}]\n`;
-      r.objectives.forEach(o=>prompt += `   • ${o}\n`);
-      prompt += `   Placement: ${r.placement.replace(/\n/g,', ')}\n\n`;
-    });
-    prompt += `Include an answer key for items 1–${mcqCount}, formatted per item type (e.g. 1-A for MCQ, 2-True for T/F, pair list for matching). Align question difficulty to the domain (R=recall, U=explain, App=apply, An=analyze, Ev=evaluate, C=create).\n`;
-    prompt += `\nItem #${pisaNum} = PISA-like (scenario/data + 2+ sub-items, Analysis/Evaluating level, scored at ${pisaPtsPerSub} point${pisaPtsPerSub>1?'s':''} per sub-item). Item #${oeNum} = open-ended/constructed-response worth ${oePts} point${oePts>1?'s':''} (SIMPLE rubric, 3 short criteria, highest domain in TOS). Both placed before the Answer Key, within the ${totalItems} total — not additional. (Note: "${totalItems} total" = number of items, not points — each is still one item despite being worth more than 1 point.)`;
-
-  } else if(mode==='filipino'){
-    prompt += `Ikaw ay isang tagapagsulat ng mga pagsubok na nakahanay sa kurikulum ng DepEd para sa ${level}.\n`;
-    prompt += `Gumawa ng kabuuang ${totalItems} na aytem batay sa Table of Specifications sa ibaba: ${mcqCount} na aytem (mga aytem 1–${mcqCount}) + 1 PISA-like na tanong (aytem #${pisaNum}) + 1 bukas na tanong (aytem #${oeNum}). Ang huling dalawa ay KASAMA na sa ${totalItems} total, hindi dagdag.\nPiliin ang FORMAT ng bawat aytem (multiple-choice A/B/C/D, true/false, o matching type) base sa angkop sa berbo/kakayahan ng layunin — huwag gawing lahat multiple-choice. Ihalo ang mga format. Markahan ang bawat aytem ng format nito, hal. "1. [Multiple Choice]".\n\n`;
-    prompt += `ASIGNATURA: ${subject}\n`;
-    prompt += `BAITANG AT SEKSYON: ${grade}\n`;
-    prompt += `PAGSUBOK: ${termLabel}\n`;
-    prompt += `KABUUANG AYTEM: ${totalItems} (${mcqCount} halo-halong MCQ/True-False/Matching + 1 PISA-like + 1 Bukas na Tanong)\n\n`;
-    prompt += `MGA KAKAYAHAN AT DISTRIBUSYON NG AYTEM:\n\n`;
-    rows.forEach((r,i)=>{
-      prompt += `${i+1}. ${r.label}\n`;
-      prompt += `   Mga Layunin:\n`;
-      r.objectives.forEach(o=>prompt += `   >> ${o}\n`);
-      const domSummary=DOMAINS.filter(d=>r.domains[d]).map(d=>`${ABBR[d]}:${r.domains[d]}`).join(', ');
-      prompt += `   Aytem: ${r.items} [${domSummary}] — Placement: ${r.placement.replace(/\n/g,', ')}\n\n`;
-    });
-    prompt += `PANUTO:\n`;
-    prompt += `1. Isulat ang mga tanong sa malinaw na Filipino o English na naaangkop sa ${grade}.\n`;
-    prompt += `2. Piliin ang pinaka-angkop na format bawat aytem: Multiple-choice (4 pagpipilian, iisa ang tama) para sa karamihan; True/False para sa mabilis na pagsusuri ng katotohanan/kahulugan; Matching type para sa pagtutugma ng mga termino/kahulugan/halimbawa. Iisa pa rin ang tamang sagot bawat aytem.\n`;
-    prompt += `3. Ihanay ang bawat tanong sa tamang antas ng kakayahan (Paggunita, Pag-unawa, Paglalapat, Pagsusuri, Pagsasuri, Paglikha).\n`;
-    prompt += `4. Gamitin ang item placement na nakalagay sa TOS bilang gabay sa pagbibilang ng mga tanong 1 hanggang ${mcqCount}.\n`;
-    prompt += `5. Pagkatapos ng aytem #${mcqCount}, ipagpatuloy ang bilang sa aytem #${pisaNum} (PISA-like) at aytem #${oeNum} (Bukas na Tanong), pagkatapos ay magbigay ng hiwalay na SUSI SA SAGOT para sa mga aytem 1–${mcqCount}, ayon sa format ng bawat aytem.\n`;
-    prompt += `\n`;
-    prompt += `AYTEM #${pisaNum} — PISA-like na Tanong (kasama sa ${totalItems} total, hindi dagdag)\n`;
-    prompt += `   • Maglaan ng maikling sipi, talaan ng datos, graph, o tunay na sitwasyon.\n`;
-    prompt += `   • Sumulat ng hindi bababa sa 2 sub-tanong (a, b, c) na nangangailangan ng interpretasyon o pagsusuri.\n`;
-    prompt += `   • Iayon sa antas ng Pagsusuri o Pagsasuri.\n`;
-    prompt += `   • Puntos: ${pisaPtsPerSub} puntos bawat sub-tanong. Isama ang susi sa sagot bawat sub-tanong.\n`;
-    prompt += `AYTEM #${oeNum} — Bukas na Tanong (kasama sa ${totalItems} total, ${oePts} puntos)\n`;
-    prompt += `   • Nangangailangan ng nakasulat na sagot, paliwanag, o pagpapatunay.\n`;
-    prompt += `   • Isama ang ISANG SIMPLENG rubric ng pagmamarka (3 maikling pamantayan lamang, hindi kumplikado).\n`;
-    prompt += `Ilagay ang aytem #${pisaNum} at aytem #${oeNum} kaagad pagkatapos ng aytem #${mcqCount}, bago ang Susi sa Sagot. HUWAG idagdag bilang bonus na labas sa ${totalItems} total.\n`;
-    prompt += `\nPaalala: ang "${totalItems} kabuuang aytem" ay bilang ng mga tanong, hindi puntos. Ang aytem #${pisaNum} at aytem #${oeNum} ay tig-iisang aytem lamang bawat isa, kahit na mas mataas sa 1 ang puntos nila — huwag hatiin sa maraming numero ang isang aytem base sa puntos nito.\n`;
-  }
-
-  document.getElementById('promptTA').value=prompt;
-}
-
-function copyPrompt(){
-  const ta=document.getElementById('promptTA');
-  if(!ta.value)return;
-  navigator.clipboard.writeText(ta.value).then(()=>{
-    const btn=document.getElementById('copyBtn');
-    btn.textContent='Copied!'; btn.classList.add('copied');
-    setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('copied');},2000);
-  }).catch(()=>{
-    ta.select(); document.execCommand('copy');
-    const btn=document.getElementById('copyBtn');
-    btn.textContent='Copied!'; btn.classList.add('copied');
-    setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('copied');},2000);
-  });
-}
-
 /* ── DRAFT SAVE / LOAD / AUTOSAVE ── */
 const AUTOSAVE_KEY='tos_v2_autosave';
 
@@ -1770,7 +1398,6 @@ function collectState(){
     teacher:document.getElementById('si-teacher').value,
     term, assess,
     targetTotal:document.getElementById('targetTotal').value,
-    oePoints:document.getElementById('oePoints').value,
     comps:JSON.parse(JSON.stringify(comps)),
     verbs:JSON.parse(JSON.stringify(verbs))
   };
@@ -1787,7 +1414,6 @@ function applyState(state){
   document.getElementById('si-subject').value=state.subject||'';
   document.getElementById('si-teacher').value=state.teacher||'';
   document.getElementById('targetTotal').value=state.targetTotal||60;
-  document.getElementById('oePoints').value=state.oePoints||5;
 
   verbs=state.verbs?JSON.parse(JSON.stringify(state.verbs)):JSON.parse(JSON.stringify(DEF_VERBS));
   buildDomainGrid();
@@ -1802,10 +1428,6 @@ function applyState(state){
   // Hide any stale generated output — must regenerate after restoring
   tosData=null;
   document.getElementById('previewCard').style.display='none';
-  document.getElementById('promptCard').style.display='none';
-  const tl=document.getElementById('typeLegend'); if(tl) tl.innerHTML='';
-  const ac=document.getElementById('assembledCard'); if(ac) ac.style.display='none';
-  assembledTest=null;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -2062,7 +1684,6 @@ async function combineDrafts(){
       term: examTerm,
       assess: examCode,
       targetTotal: (parseInt(stateA.targetTotal)||0) + (parseInt(stateB.targetTotal)||0) || 60,
-      oePoints: stateA.oePoints || stateB.oePoints || 5,
       comps: finalComps,
       verbs: unionVerbs
     };
@@ -2077,595 +1698,6 @@ async function combineDrafts(){
   }catch(err){
     summaryEl.innerHTML = `<span style="color:var(--warn);">⚠ Could not combine drafts: ${esc(err.message||String(err))}</span>`;
   }
-}
-
-/* ═══════════════════════════════════════════════════
-   QUESTION BANK
-   ═══════════════════════════════════════════════════ */
-
-const QB_TYPE_LABEL={mcq:'MCQ', open:'Open-Ended', tf:'True/False', matching:'Matching'};
-const QB_TYPE_COLOR={mcq:'#2f5f6b', open:'#5c4a8a', tf:'#4f6b3a', matching:'#8a4a2f'};
-
-/* ── Add-Question form: type switching ── */
-function setQBType(t){
-  qbType=t;
-  ['mcq','open','tf','matching'].forEach(x=>{
-    document.getElementById('qbtab-'+x).classList.toggle('active', x===t);
-    document.getElementById('qb-fields-'+x).style.display = (x===t)?'block':'none';
-  });
-  if(t==='matching' && document.getElementById('qb-pairs').children.length===0){
-    addPairRow(); addPairRow();
-  }
-}
-
-function addPairRow(){
-  const wrap=document.getElementById('qb-pairs');
-  const row=document.createElement('div'); row.className='pair-row';
-  row.innerHTML=`<input type="text" class="qb-pair-left" placeholder="Item…"><span style="color:#9a8e76;">↔</span><input type="text" class="qb-pair-right" placeholder="Match…"><button onclick="this.parentElement.remove()">×</button>`;
-  wrap.appendChild(row);
-}
-
-/* ── Domain <select> population (shared with filter) ── */
-function populateQBDomainSelect(){
-  const sel=document.getElementById('qb-domain');
-  sel.innerHTML='<option value="">— auto-suggested from text —</option>' +
-    DOMAINS.map(d=>`<option value="${d}">${ABBR[d]} – ${d}</option>`).join('');
-}
-function updateQBDifficultyBadge(){
-  const domSel=document.getElementById('qb-domain');
-  const badge=document.getElementById('qbDifficultyBadge');
-  const d=domSel.value;
-  if(!d){ badge.style.display='none'; return; }
-  const diff=DOMAIN_DIFFICULTY[d];
-  badge.textContent='Difficulty: '+diff;
-  badge.style.background=DIFF_COLOR[diff];
-  badge.style.display='inline-block';
-}
-function populateQBDomainFilters(){
-  const sel=document.getElementById('qbFilterDomain');
-  if(sel.options.length<=1){
-    sel.innerHTML='<option value="">All domains</option>' + DOMAINS.map(d=>`<option value="${d}">${ABBR[d]} – ${d}</option>`).join('');
-  }
-}
-
-/* Auto-suggest domain as the stem is typed */
-document.getElementById('qb-stem').addEventListener('input', ()=>{
-  const domSel=document.getElementById('qb-domain');
-  if(domSel.value){ updateQBDifficultyBadge(); return; } // don't override a manual choice
-  const matches=classifyAll(document.getElementById('qb-stem').value);
-  if(matches.length>0) domSel.value=matches[0];
-  updateQBDifficultyBadge();
-});
-
-/* Competency datalist: pulled from current TOS comps + existing bank entries */
-function refreshQBCompList(){
-  const dl=document.getElementById('qbCompList');
-  const names=new Set();
-  comps.forEach(c=>{ if(c.label.trim()) names.add(c.label.trim()); });
-  bank.forEach(q=>{ if(q.competency) names.add(q.competency); });
-  dl.innerHTML=Array.from(names).map(n=>`<option value="${esc(n)}">`).join('');
-
-  const lesDl=document.getElementById('qbLessonList');
-  const lessons=new Set();
-  comps.forEach(c=>{
-    (c.lessons||'').split(';').map(s=>s.trim()).filter(Boolean).forEach(l=>lessons.add(l));
-  });
-  bank.forEach(q=>{ if(q.lesson) lessons.add(q.lesson); });
-  lesDl.innerHTML=Array.from(lessons).map(n=>`<option value="${esc(n)}">`).join('');
-}
-
-function clearQBForm(){
-  qbEditingId=null;
-  document.getElementById('qb-competency').value='';
-  document.getElementById('qb-lesson').value='';
-  document.getElementById('qb-domain').value='';
-  document.getElementById('qb-stem').value='';
-  document.getElementById('qb-optA').value='';
-  document.getElementById('qb-optB').value='';
-  document.getElementById('qb-optC').value='';
-  document.getElementById('qb-optD').value='';
-  document.querySelector('input[name=qbCorrect][value=A]').checked=true;
-  document.getElementById('qb-rubric').value='';
-  document.querySelector('input[name=qbTF][value=True]').checked=true;
-  document.getElementById('qb-pairs').innerHTML='';
-  addPairRow(); addPairRow();
-  document.getElementById('qbFormMsg').textContent='';
-  document.getElementById('qbDifficultyBadge').style.display='none';
-}
-
-function saveQuestion(){
-  const msgEl=document.getElementById('qbFormMsg');
-  const competency=document.getElementById('qb-competency').value.trim();
-  const lesson=document.getElementById('qb-lesson').value.trim();
-  const domain=document.getElementById('qb-domain').value;
-  const stem=document.getElementById('qb-stem').value.trim();
-  if((!competency && !lesson) || !stem){
-    msgEl.innerHTML='<span style="color:var(--warn);">⚠ Question text is required, plus at least a Competency or a Lesson tag.</span>';
-    return;
-  }
-  const q={
-    id: qbEditingId || uid(),
-    type: qbType,
-    competency, lesson, domain, stem
-  };
-  if(qbType==='mcq'){
-    q.optA=document.getElementById('qb-optA').value.trim();
-    q.optB=document.getElementById('qb-optB').value.trim();
-    q.optC=document.getElementById('qb-optC').value.trim();
-    q.optD=document.getElementById('qb-optD').value.trim();
-    q.correct=document.querySelector('input[name=qbCorrect]:checked').value;
-  } else if(qbType==='open'){
-    q.rubric=document.getElementById('qb-rubric').value.trim();
-  } else if(qbType==='tf'){
-    q.tf=document.querySelector('input[name=qbTF]:checked').value;
-  } else if(qbType==='matching'){
-    const lefts=[...document.querySelectorAll('.qb-pair-left')].map(i=>i.value.trim());
-    const rights=[...document.querySelectorAll('.qb-pair-right')].map(i=>i.value.trim());
-    q.pairs=lefts.map((l,i)=>({left:l,right:rights[i]||''})).filter(p=>p.left||p.right);
-  }
-
-  if(qbEditingId){
-    const idx=bank.findIndex(x=>x.id===qbEditingId);
-    if(idx>=0) bank[idx]=q;
-    msgEl.innerHTML='<span style="color:var(--good);">✓ Question updated.</span>';
-  } else {
-    bank.push(q);
-    msgEl.innerHTML='<span style="color:var(--good);">✓ Question added to bank.</span>';
-  }
-  clearQBForm();
-  renderBankTable();
-  refreshQBCompList();
-  bankAutosaveTick();
-  cloudSaveQuestion(q);
-}
-
-function editQuestion(id){
-  const q=bank.find(x=>x.id===id); if(!q) return;
-  qbEditingId=id;
-  setQBType(q.type);
-  document.getElementById('qb-competency').value=q.competency||'';
-  document.getElementById('qb-lesson').value=q.lesson||'';
-  document.getElementById('qb-domain').value=q.domain||'';
-  updateQBDifficultyBadge();
-  document.getElementById('qb-stem').value=q.stem||'';
-  if(q.type==='mcq'){
-    document.getElementById('qb-optA').value=q.optA||'';
-    document.getElementById('qb-optB').value=q.optB||'';
-    document.getElementById('qb-optC').value=q.optC||'';
-    document.getElementById('qb-optD').value=q.optD||'';
-    const radio=document.querySelector(`input[name=qbCorrect][value="${q.correct||'A'}"]`);
-    if(radio) radio.checked=true;
-  } else if(q.type==='open'){
-    document.getElementById('qb-rubric').value=q.rubric||'';
-  } else if(q.type==='tf'){
-    const radio=document.querySelector(`input[name=qbTF][value="${q.tf||'True'}"]`);
-    if(radio) radio.checked=true;
-  } else if(q.type==='matching'){
-    document.getElementById('qb-pairs').innerHTML='';
-    (q.pairs||[]).forEach(p=>{
-      addPairRow();
-      const rows=document.querySelectorAll('.pair-row');
-      const last=rows[rows.length-1];
-      last.querySelector('.qb-pair-left').value=p.left||'';
-      last.querySelector('.qb-pair-right').value=p.right||'';
-    });
-    if((q.pairs||[]).length===0){ addPairRow(); addPairRow(); }
-  }
-  document.getElementById('qbFormMsg').innerHTML=`<span style="color:#2a4f8a;">✏️ Editing question — click "Save Question to Bank" to update.</span>`;
-  document.querySelector('.card-title').scrollIntoView({behavior:'smooth'});
-}
-
-function deleteQuestion(id){
-  bank=bank.filter(q=>q.id!==id);
-  renderBankTable();
-  bankAutosaveTick();
-  cloudDeleteQuestion(id);
-}
-
-function clearBank(){
-  bank=[];
-  renderBankTable();
-  bankAutosaveTick();
-  cloudClearBank();
-}
-
-/* ── Bank table rendering with filters ── */
-function renderBankTable(){
-  populateQBDomainFilters();
-  const compFilter=(document.getElementById('qbFilterComp').value||'').trim().toLowerCase();
-  const domFilter=document.getElementById('qbFilterDomain').value;
-  const typeFilter=document.getElementById('qbFilterType').value;
-
-  const filtered=bank.filter(q=>{
-    if(compFilter && !(q.competency||'').toLowerCase().includes(compFilter) && !(q.lesson||'').toLowerCase().includes(compFilter)) return false;
-    if(domFilter && q.domain!==domFilter) return false;
-    if(typeFilter && q.type!==typeFilter) return false;
-    return true;
-  });
-
-  const wrap=document.getElementById('qbGroups');
-  if(filtered.length===0){
-    wrap.innerHTML=`<div class="qb-empty">📚 No questions yet.<br>Add one above or bulk-upload an Excel file.</div>`;
-    return;
-  }
-
-  // Group by Competency; fall back to Lesson, then "Untagged"
-  const groups={}; // label -> [questions]
-  const order=[];
-  filtered.forEach(q=>{
-    const label = (q.competency||'').trim() || (q.lesson ? `📎 ${q.lesson.trim()}` : '⚠ Untagged');
-    if(!groups[label]){ groups[label]=[]; order.push(label); }
-    groups[label].push(q);
-  });
-  order.sort((a,b)=> a==='⚠ Untagged' ? 1 : b==='⚠ Untagged' ? -1 : a.localeCompare(b));
-
-  wrap.innerHTML = order.map(label=>{
-    const qs=groups[label];
-    const rows = qs.map(q=>{
-      const diff = q.domain ? DOMAIN_DIFFICULTY[q.domain] : null;
-      return `
-      <tr>
-        <td><span class="qb-type-badge" style="background:${QB_TYPE_COLOR[q.type]}">${QB_TYPE_LABEL[q.type]}</span></td>
-        <td>${esc(q.lesson)||'<span style="color:#c0b090;">—</span>'}</td>
-        <td>${q.domain?`${ABBR[q.domain]} – ${esc(q.domain)}`:'<span style="color:var(--warn);">none</span>'}</td>
-        <td>${diff?`<span class="qb-type-badge" style="background:${DIFF_COLOR[diff]}">${diff}</span>`:'<span style="color:#c0b090;">—</span>'}</td>
-        <td>${esc((q.stem||'').slice(0,90))}${(q.stem||'').length>90?'…':''}</td>
-        <td class="qb-actions">
-          <button class="edit" onclick="editQuestion('${q.id}')" title="Edit">✏️</button>
-          <button class="del" onclick="deleteQuestion('${q.id}')" title="Delete">🗑️</button>
-        </td>
-      </tr>`;}).join('');
-    return `<details class="qb-group">
-      <summary><span>${esc(label)}</span><span class="qb-group-count">${qs.length} item${qs.length>1?'s':''}</span></summary>
-      <div class="qb-group-body">
-        <div class="qb-table-scroll">
-          <table class="qbtbl">
-            <thead><tr><th>Type</th><th>Lesson</th><th>Domain</th><th>Difficulty</th><th>Question</th><th></th></tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-      </div>
-    </details>`;
-  }).join('');
-}
-
-function expandAllQBGroups(open){
-  document.querySelectorAll('.qb-group').forEach(d=>{ d.open = open; });
-}
-
-/* ── Bulk upload ── */
-const qbDz=document.getElementById('qbDropzone');
-const qbFi=document.getElementById('qbFileInput');
-qbDz.addEventListener('click',()=>qbFi.click());
-qbDz.addEventListener('dragover',e=>{e.preventDefault();qbDz.classList.add('drag');});
-qbDz.addEventListener('dragleave',()=>qbDz.classList.remove('drag'));
-qbDz.addEventListener('drop',e=>{e.preventDefault();qbDz.classList.remove('drag');if(e.dataTransfer.files.length)handleQBFile(e.dataTransfer.files[0]);});
-qbFi.addEventListener('change',e=>{if(e.target.files.length)handleQBFile(e.target.files[0]);e.target.value='';});
-
-async function handleQBFile(file){
-  const pill=document.getElementById('qbFilePill');
-  pill.innerHTML=`<div class="file-pill">⏳ Reading ${esc(file.name)}…</div>`;
-  try{
-    const buf=await file.arrayBuffer();
-    const wb=new ExcelJS.Workbook(); await wb.xlsx.load(buf);
-    const ws=wb.worksheets[0];
-    let hRow=-1; const colIdx={};
-    for(let r=1;r<=Math.min(5,ws.rowCount);r++){
-      let hit=false;
-      ws.getRow(r).eachCell({includeEmpty:false},(cell,c)=>{
-        const v=safeCellText(cell).toLowerCase().trim();
-        if(/^type$/.test(v)){colIdx.type=c;hit=true;}
-        else if(/competency/.test(v)) colIdx.competency=c;
-        else if(/lesson/.test(v)) colIdx.lesson=c;
-        else if(/^domain$/.test(v)) colIdx.domain=c;
-        else if(/question|stem/.test(v)) colIdx.stem=c;
-        else if(/option a/.test(v)) colIdx.optA=c;
-        else if(/option b/.test(v)) colIdx.optB=c;
-        else if(/option c/.test(v)) colIdx.optC=c;
-        else if(/option d/.test(v)) colIdx.optD=c;
-        else if(/correct/.test(v)) colIdx.correct=c;
-        else if(/rubric|points/.test(v)) colIdx.rubric=c;
-        else if(/matching pairs/.test(v)) colIdx.pairs=c;
-      });
-      if(hit){hRow=r;break;}
-    }
-    if(hRow===-1 || !colIdx.stem){ pill.innerHTML=`<div class="file-pill" style="color:var(--warn);">⚠ Could not find a header row with a "Question/Stem" column.</div>`; return; }
-
-    let added=0;
-    for(let r=hRow+1;r<=ws.rowCount;r++){
-      const row=ws.getRow(r);
-      const stem=safeCellText(row.getCell(colIdx.stem)).toString().trim();
-      if(!stem) continue;
-      const typeRaw=(colIdx.type?safeCellText(row.getCell(colIdx.type)).toString().trim().toLowerCase():'mcq');
-      const type = ['mcq','open','tf','matching'].includes(typeRaw) ? typeRaw :
-                   /open/.test(typeRaw) ? 'open' : /true|false|tf/.test(typeRaw) ? 'tf' :
-                   /match/.test(typeRaw) ? 'matching' : 'mcq';
-      const competency = colIdx.competency ? safeCellText(row.getCell(colIdx.competency)).toString().trim() : '';
-      const lesson = colIdx.lesson ? safeCellText(row.getCell(colIdx.lesson)).toString().trim() : '';
-      let domain = colIdx.domain ? safeCellText(row.getCell(colIdx.domain)).toString().trim() : '';
-      if(domain && !DOMAINS.includes(domain)) domain='';
-      if(!domain){ const m=classifyAll(stem); if(m.length) domain=m[0]; }
-
-      const q={id:uid(), type, competency, lesson, domain, stem};
-      if(type==='mcq'){
-        q.optA=colIdx.optA?safeCellText(row.getCell(colIdx.optA)).toString().trim():'';
-        q.optB=colIdx.optB?safeCellText(row.getCell(colIdx.optB)).toString().trim():'';
-        q.optC=colIdx.optC?safeCellText(row.getCell(colIdx.optC)).toString().trim():'';
-        q.optD=colIdx.optD?safeCellText(row.getCell(colIdx.optD)).toString().trim():'';
-        q.correct=colIdx.correct?safeCellText(row.getCell(colIdx.correct)).toString().trim().toUpperCase().slice(0,1)||'A':'A';
-      } else if(type==='open'){
-        q.rubric=colIdx.rubric?safeCellText(row.getCell(colIdx.rubric)).toString().trim():'';
-      } else if(type==='tf'){
-        const c=colIdx.correct?safeCellText(row.getCell(colIdx.correct)).toString().trim():'True';
-        q.tf=/false/i.test(c)?'False':'True';
-      } else if(type==='matching'){
-        const raw=colIdx.pairs?safeCellText(row.getCell(colIdx.pairs)).toString().trim():'';
-        q.pairs=raw.split(';').map(p=>p.split('=')).filter(p=>p.length===2).map(([l,rr])=>({left:l.trim(),right:rr.trim()}));
-      }
-      bank.push(q);
-      added++;
-      cloudSaveQuestion(q);
-    }
-    if(added===0){ pill.innerHTML=`<div class="file-pill" style="color:var(--warn);">⚠ No question rows found.</div>`; return; }
-    renderBankTable(); refreshQBCompList(); bankAutosaveTick();
-    pill.innerHTML=`<div class="file-pill">📄 ${esc(file.name)} · ${added} question${added>1?'s':''} added</div>`;
-  }catch(err){
-    pill.innerHTML=`<div class="file-pill" style="color:var(--warn);">⚠ ${esc(err.message||String(err))}</div>`;
-  }
-}
-
-/* ── AI Prompt for Populating the Bank ── */
-const QB_AI_PROMPT_TEMPLATE = `You are helping a DepEd teacher convert an existing set of test questions into a structured spreadsheet format for a Question Bank tool.
-
-TARGET COLUMNS (in this exact order)
-Type | Competency | Lesson | Domain | Question/Stem | Option A | Option B | Option C | Option D | Correct Answer | Rubric/Points | Matching Pairs
-
-COLUMN RULES
-
-Type — one of exactly these four lowercase values:
-- mcq — multiple choice (4 options, 1 correct)
-- open — open-ended / essay / constructed response
-- tf — true or false
-- matching — matching type
-
-Competency — the learning competency or topic the question belongs to. If the source material states it (e.g. a heading, LO number, or unit title), use that exact wording. If not stated, infer the most likely competency from the question content, and prefix it with [INFERRED] so the teacher knows to double-check it. Leave blank if only a Lesson is identifiable instead.
-
-Lesson — the specific lesson name or number the question came from (e.g. "Lesson 1.1"), if the source material states it (a heading, lesson number, or unit sub-title). Leave blank if not stated — do not infer this one, since Lesson is optional and only useful when explicitly labeled in the source. A question needs at least a Competency OR a Lesson, not necessarily both.
-
-Domain — one of exactly these six values, matched to Revised Bloom's Taxonomy:
-- Remembering — recall, identify, name, list, define, label
-- Understanding — explain, describe, distinguish, classify, summarize, compare
-- Application — solve, apply, use, demonstrate, compute, implement
-- Analysis — analyze, differentiate, examine, categorize, break down
-- Evaluating — judge, assess, defend, justify, critique, recommend
-- Creating — design, formulate, construct, propose, compose, generate
-
-Classify based on the cognitive demand of the question, not just a keyword match — a question that says "identify" but requires comparing two complex scenarios is Analysis, not Remembering.
-
-Question/Stem — the full question text, verbatim from the source. Do not paraphrase or shorten it.
-
-Option A–D — for mcq only. Leave blank for all other types. Copy options exactly as written; do not reorder them.
-
-Correct Answer — format depends on Type:
-- mcq → the single letter: A, B, C, or D
-- tf → True or False
-- open → leave blank (scoring is via Rubric/Points instead)
-- matching → leave blank (answers are the pairs themselves)
-
-Rubric/Points — for open type only. If the source doesn't include a rubric, write a brief 2–3 criterion rubric based on what a complete answer would need to include. Leave blank for other types.
-
-Matching Pairs — for matching type only. Format as: Left1=Right1; Left2=Right2; Left3=Right3 — use a semicolon to separate pairs and an equals sign between each left/right item. Leave blank for other types.
-
-OUTPUT FORMAT
-Return the result as a markdown table using the exact column headers above, one row per question, so it can be copied straight into Excel. Do not add commentary, explanations, or extra columns. If a question doesn't clearly fit one of the four Types, make your best judgment and note your reasoning in a short list after the table, not inside it.
-
-If the source has 15+ questions, process all of them — do not truncate or summarize partway through.
-
-MY TEST QUESTIONS (below)
-`;
-
-function copyQBPrompt(){
-  const questions=document.getElementById('qbAiQuestions').value.trim();
-  const msgEl=document.getElementById('qbAiMsg');
-  if(!questions){
-    msgEl.innerHTML='<span style="color:var(--warn);">⚠ Paste your test questions first.</span>';
-    return;
-  }
-  const fullText = QB_AI_PROMPT_TEMPLATE + '\n' + questions;
-  const finish=()=>{
-    const btn=document.getElementById('qbAiCopyBtn');
-    const original=btn.textContent;
-    btn.textContent='✓ Copied!';
-    msgEl.innerHTML='<span style="color:var(--good);">✓ Prompt + your questions copied — paste into ChatGPT, Copilot, DeepSeek, or Gemini.</span>';
-    setTimeout(()=>{ btn.textContent=original; },2000);
-  };
-  navigator.clipboard.writeText(fullText).then(finish).catch(()=>{
-    const ta=document.createElement('textarea');
-    ta.value=fullText; ta.style.position='fixed'; ta.style.left='-9999px';
-    document.body.appendChild(ta); ta.select(); document.execCommand('copy');
-    document.body.removeChild(ta);
-    finish();
-  });
-}
-
-async function downloadQBTemplate(){
-  try{
-    const wb=new ExcelJS.Workbook(); const ws=wb.addWorksheet('Questions');
-    ws.columns=[{width:12},{width:28},{width:16},{width:16},{width:44},{width:20},{width:20},{width:20},{width:20},{width:12},{width:34},{width:34}];
-    const h=ws.addRow(['Type','Competency','Lesson','Domain','Question/Stem','Option A','Option B','Option C','Option D','Correct Answer','Rubric/Points','Matching Pairs']);
-    h.font={bold:true};
-    ws.addRow(['mcq','LO 1. Sample competency','Lesson 1.1','Understanding','What is the main purpose of X?','Option 1','Option 2','Option 3','Option 4','A','','']);
-    ws.addRow(['open','LO 1. Sample competency','Lesson 1.2','Evaluating','Explain why X is important in this context.','','','','','','3 pts: 1 for definition, 1 for reasoning, 1 for example','']);
-    ws.addRow(['tf','LO 2. Another competency','Lesson 2.1','Remembering','X is always true under condition Y.','','','','','True','','']);
-    ws.addRow(['matching','LO 2. Another competency','Lesson 2.1','Understanding','Match each term to its correct definition.','','','','','','','Term1=Definition1; Term2=Definition2']);
-    triggerDl(await wb.xlsx.writeBuffer(),'Question_Bank_Template.xlsx');
-  }catch(err){alert('Could not create template: '+err.message);}
-}
-
-/* ── Bank Save / Load (separate from TOS drafts — persists long-term) ── */
-const BANK_AUTOSAVE_KEY='tos_v2_bank_autosave';
-
-function saveBankFile(){
-  try{
-    const json=JSON.stringify({savedAt:new Date().toISOString(), bank}, null, 2);
-    const blob=new Blob([json],{type:'application/json'});
-    const url=URL.createObjectURL(blob);
-    const fn=`Question_Bank_${new Date().toISOString().slice(0,10)}.json`;
-    const a=document.createElement('a'); a.href=url; a.download=fn; a.rel='noopener';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(()=>URL.revokeObjectURL(url),4000);
-  }catch(err){ alert('Could not export bank: '+err.message); }
-}
-
-document.getElementById('loadBankInput').addEventListener('change', async(e)=>{
-  const file=e.target.files[0]; if(!file) return;
-  try{
-    const text=await file.text();
-    const data=JSON.parse(text);
-    bank=Array.isArray(data.bank)?data.bank:(Array.isArray(data)?data:[]);
-    renderBankTable(); refreshQBCompList(); bankAutosaveTick();
-  }catch(err){ alert('Could not read this bank file: '+err.message); }
-  e.target.value='';
-});
-
-function bankAutosaveTick(){
-  try{
-    if(bank.length===0) return;
-    localStorage.setItem(BANK_AUTOSAVE_KEY, JSON.stringify({savedAt:new Date().toISOString(), bank}));
-  }catch(err){}
-}
-function loadBankAutosave(){
-  try{
-    const raw=localStorage.getItem(BANK_AUTOSAVE_KEY);
-    if(!raw) return;
-    const data=JSON.parse(raw);
-    if(Array.isArray(data.bank) && data.bank.length>0) bank=data.bank;
-  }catch(err){}
-}
-
-/* ═══════════════════════════════════════════════════
-   PULL MATCHING QUESTIONS FROM BANK → ASSEMBLED TEST
-   ═══════════════════════════════════════════════════ */
-let assembledTest=null; // {items:[{num,domain,competency,question}], gaps:[{competency,domain,count}]}
-
-function pullFromBank(){
-  if(!tosData){ alert('Generate the TOS first.'); return; }
-  const norm = s => (s||'').trim().toLowerCase();
-  const usedIds = new Set();
-  const items=[]; // {num, domain, competency, question|null}
-  const gaps=[];  // {competency, domain, count}
-  let counter=1;
-
-  tosData.rows.forEach(r=>{
-    // Build the match set for this competency row: its own name + every lesson it covers
-    const rowLessons=(r.lessons||'').split(';').map(s=>norm(s)).filter(Boolean);
-    const compNorm=norm(r.label);
-
-    DOMAINS.forEach(d=>{
-      const need=r.domains[d]||0;
-      if(need===0) return;
-      // find bank questions matching this competency (by name OR by lesson tag), not yet used
-      const pool=bank.filter(q=>{
-        if(usedIds.has(q.id) || q.domain!==d) return false;
-        const qComp=norm(q.competency);
-        const qLes=norm(q.lesson);
-        if(qComp && qComp===compNorm) return true;
-        if(qLes && rowLessons.includes(qLes)) return true;
-        return false;
-      });
-      let filled=0;
-      for(let i=0;i<need;i++){
-        const q=pool[i];
-        if(q){
-          usedIds.add(q.id);
-          items.push({num:counter, domain:d, competency:r.label, question:q});
-          filled++;
-        } else {
-          items.push({num:counter, domain:d, competency:r.label, question:null});
-        }
-        counter++;
-      }
-      if(filled<need){
-        gaps.push({competency:r.label, domain:d, count:need-filled});
-      }
-    });
-  });
-
-  assembledTest={items, gaps};
-  renderAssembled();
-}
-
-function renderAssembled(){
-  const card=document.getElementById('assembledCard');
-  card.style.display='block';
-  const gapArea=document.getElementById('gapArea');
-  const area=document.getElementById('assembledArea');
-
-  if(assembledTest.gaps.length>0){
-    gapArea.innerHTML = `<div class="banner warn">⚠ ${assembledTest.gaps.length} gap(s) — not enough matching questions in the bank. These items are left blank below; use the AI Prompt Generator (or add more to the bank) to fill them.</div>` +
-      assembledTest.gaps.map(g=>`<div class="gap-item">Missing ${g.count} ${ABBR[g.domain]}-level question${g.count>1?'s':''} for <strong>${esc(g.competency)}</strong></div>`).join('');
-  } else {
-    gapArea.innerHTML = `<div class="banner ok">✓ All items filled from the Question Bank.</div>`;
-  }
-
-  area.innerHTML = assembledTest.items.map(it=>{
-    const q=it.question;
-    let body;
-    if(!q){
-      body = `<em style="color:var(--warn);">— No matching question found in bank for ${ABBR[it.domain]} / "${esc(it.competency)}" —</em>`;
-    } else if(q.type==='mcq'){
-      body = `${esc(q.stem)}<br>A. ${esc(q.optA)} &nbsp; B. ${esc(q.optB)} &nbsp; C. ${esc(q.optC)} &nbsp; D. ${esc(q.optD)}`;
-    } else if(q.type==='open'){
-      body = `${esc(q.stem)}<br><span style="color:#8a7a5c;font-size:11.5px;">Rubric: ${esc(q.rubric||'—')}</span>`;
-    } else if(q.type==='tf'){
-      body = `${esc(q.stem)} <em>(True/False)</em>`;
-    } else if(q.type==='matching'){
-      body = `${esc(q.stem)}<br>` + (q.pairs||[]).map(p=>`${esc(p.left)} ↔ ${esc(p.right)}`).join('<br>');
-    }
-    return `<div class="assembled-q"><span class="qnum">${it.num}.</span><span style="font-size:10.5px;color:#8a7a5c;">[${ABBR[it.domain]}]</span> ${body}</div>`;
-  }).join('');
-}
-
-function downloadAssembledTest(){
-  if(!assembledTest){ alert('Pull questions from the bank first.'); return; }
-  let out='';
-  assembledTest.items.forEach(it=>{
-    const q=it.question;
-    out += `${it.num}. `;
-    if(!q){ out += `[MISSING — ${ABBR[it.domain]} / ${it.competency}]\n\n`; return; }
-    if(q.type==='mcq'){
-      out += `${q.stem}\nA. ${q.optA}\nB. ${q.optB}\nC. ${q.optC}\nD. ${q.optD}\n\n`;
-    } else if(q.type==='open'){
-      out += `${q.stem}\n\n`;
-    } else if(q.type==='tf'){
-      out += `${q.stem} (True/False)\n\n`;
-    } else if(q.type==='matching'){
-      out += `${q.stem}\n` + (q.pairs||[]).map(p=>`  ${p.left} ↔ ${p.right}`).join('\n') + `\n\n`;
-    }
-  });
-  const blob=new Blob([out],{type:'text/plain'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a'); a.href=url; a.download=`Assembled_Test_${new Date().toISOString().slice(0,10)}.txt`; a.rel='noopener';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  setTimeout(()=>URL.revokeObjectURL(url),4000);
-}
-
-function downloadAssembledKey(){
-  if(!assembledTest){ alert('Pull questions from the bank first.'); return; }
-  let out='ANSWER KEY\n\n';
-  assembledTest.items.forEach(it=>{
-    const q=it.question;
-    if(!q){ out += `${it.num}. [MISSING]\n`; return; }
-    if(q.type==='mcq'){ out += `${it.num}. ${q.correct}\n`; }
-    else if(q.type==='tf'){ out += `${it.num}. ${q.tf}\n`; }
-    else if(q.type==='open'){ out += `${it.num}. (see rubric) ${q.rubric||''}\n`; }
-    else if(q.type==='matching'){ out += `${it.num}. ` + (q.pairs||[]).map(p=>`${p.left}→${p.right}`).join(', ') + `\n`; }
-  });
-  const blob=new Blob([out],{type:'text/plain'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a'); a.href=url; a.download=`Answer_Key_${new Date().toISOString().slice(0,10)}.txt`; a.rel='noopener';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  setTimeout(()=>URL.revokeObjectURL(url),4000);
 }
 
 /* ═══════════════════════════════════════════════════
@@ -2770,7 +1802,6 @@ if(fbReady){
       currentUser = { uid:user.uid, email:user.email, name:user.displayName||user.email, photo:user.photoURL };
       currentRole = await ensureUserDoc(user);
       updateAuthUI();
-      loadBankFromCloud();
       loadCloudTestsList();
       loadCloudDraftsList();
       const ctc=document.getElementById('cloudTestsCard'); if(ctc) ctc.style.display='block';
@@ -2785,44 +1816,6 @@ if(fbReady){
 } else {
   // Firebase not configured yet — skip the login gate entirely so the app is still usable/testable
   showAppContent(true);
-}
-
-/* ═══════════════════════════════════════════════════
-   CLOUD-SYNCED QUESTION BANK (private per teacher)
-   ═══════════════════════════════════════════════════ */
-function bankCollection(){
-  return fbDb.collection('users').doc(currentUser.uid).collection('questionBank');
-}
-
-async function loadBankFromCloud(){
-  if(!fbReady || !currentUser) return;
-  try{
-    const snap = await bankCollection().get();
-    bank = snap.docs.map(d=>({ id:d.id, ...d.data() }));
-    renderBankTable(); refreshQBCompList();
-  }catch(err){ console.warn('Could not load cloud bank:', err); }
-}
-
-async function cloudSaveQuestion(q){
-  if(!fbReady || !currentUser) return;
-  try{ await bankCollection().doc(q.id).set(q); }
-  catch(err){ console.warn('Cloud save failed:', err); }
-}
-
-async function cloudDeleteQuestion(id){
-  if(!fbReady || !currentUser) return;
-  try{ await bankCollection().doc(id).delete(); }
-  catch(err){ console.warn('Cloud delete failed:', err); }
-}
-
-async function cloudClearBank(){
-  if(!fbReady || !currentUser) return;
-  try{
-    const snap = await bankCollection().get();
-    const batch = fbDb.batch();
-    snap.docs.forEach(d=>batch.delete(d.ref));
-    await batch.commit();
-  }catch(err){ console.warn('Cloud clear failed:', err); }
 }
 
 /* ═══════════════════════════════════════════════════
@@ -2852,11 +1845,6 @@ async function submitForReview(){
         label:r.label, days:r.days, items:r.items, domains:r.domains, placement:r.placement
       })),
       totalItems: tosData.totalItems,
-      assembledItems: assembledTest ? assembledTest.items.map(it=>({
-        num:it.num, domain:it.domain, competency:it.competency,
-        stem: it.question ? it.question.stem : null,
-        type: it.question ? it.question.type : null
-      })) : null,
       // Only attach Test Maker content when it genuinely corresponds to this live TOS
       // (not a different test loaded from the cloud), so submissions never mix content
       // from two unrelated tests.
@@ -2937,14 +1925,6 @@ function openSubmission(id){
   DOMAINS.forEach(d=>tosHtml+=`<td class="num">${totDom[d]||0}</td>`);
   tosHtml += `<td></td></tr></tbody></table>`;
 
-  let assembledHtml='';
-  if(s.assembledItems && s.assembledItems.length){
-    assembledHtml = '<div style="margin-top:16px;">' + s.assembledItems.map(it=>{
-      const body = it.stem ? esc(it.stem) : `<em style="color:var(--warn);">— not filled from bank —</em>`;
-      return `<div class="assembled-q"><span class="qnum">${it.num}.</span><span style="font-size:10.5px;color:#8a7a5c;">[${ABBR[it.domain]}]</span> ${body}</div>`;
-    }).join('') + '</div>';
-  }
-
   let testMakerHtml='';
   if(s.testMakerSnapshot && s.testMakerSnapshot.slots && s.testMakerSnapshot.slots.length){
     const { slots: mSlots, testItems: mItems } = s.testMakerSnapshot;
@@ -2987,7 +1967,6 @@ function openSubmission(id){
     <h3 style="font-family:'Source Serif 4',serif;color:var(--maroon-deep);margin-bottom:4px;">${esc(s.subject)} ${s.grade?'— '+esc(s.grade):''}</h3>
     <p style="font-size:12.5px;color:#8a7a5c;margin-bottom:14px;">Submitted by ${esc(s.teacherName)} (${esc(s.teacherEmail)}) · ${esc(s.termLabel||'')}</p>
     <div class="tos-scroll">${tosHtml}</div>
-    ${assembledHtml}
     ${testMakerHtml}
     <div class="rd-status-row">${statusRow}</div>
     <div style="margin-top:10px;">
@@ -3286,9 +2265,7 @@ function makerItemHTML(slot){
     const type=it.type||'mcq';
     bodyHtml=`${tipHtml}
       <div class="btn-row" style="margin-top:0;margin-bottom:12px;">
-        <button class="btn btn-sm btn-gold" onclick="pullMakerItemFromBank(${slot.num})">📚 Pull from Bank</button>
         <button class="btn btn-sm btn-gold" onclick="generateMakerItemAI(${slot.num})">✨ Generate with AI</button>
-        <span id="maker-bankinfo-${slot.num}" style="font-size:11.5px;color:#8a7a5c;"></span>
         <span id="maker-aiinfo-${slot.num}" style="font-size:11.5px;color:#8a7a5c;"></span>
       </div>
       <div class="qb-type-tabs">
@@ -3594,57 +2571,6 @@ async function generateAllMakerItems(){
   }
 }
 
-function pullMakerItemFromBank(num){
-  const slots=buildMakerSlots();
-  const slot=slots.find(s=>s.num===num);
-  if(!slot || slot.isPisa || slot.isOE) return;
-  const norm=s=>(s||'').trim().toLowerCase();
-  const row=tosData.rows.find(r=>r.label===slot.competency);
-  const rowLessons=((row&&row.lessons)||'').split(';').map(norm).filter(Boolean);
-  const compNorm=norm(slot.competency);
-
-  const matches=bank.filter(q=>{
-    if(q.domain!==slot.domain) return false;
-    const qComp=norm(q.competency), qLes=norm(q.lesson);
-    if(qComp && qComp===compNorm) return true;
-    if(qLes && rowLessons.includes(qLes)) return true;
-    return false;
-  });
-
-  const infoEl=document.getElementById('maker-bankinfo-'+num);
-  if(matches.length===0){
-    if(infoEl) infoEl.textContent='⚠ No matching questions found in the Bank for this competency/domain.';
-    return;
-  }
-
-  if(!testItems[num]) testItems[num]={};
-  const cur=testItems[num]._bankCycle||0;
-  const idx=cur%matches.length;
-  const picked=matches[idx];
-  testItems[num]._bankCycle=cur+1;
-
-  // Copy the picked question's fields into this item — a copy, not a link, so it stays fully editable
-  testItems[num].type=picked.type;
-  testItems[num].stem=picked.stem||'';
-  if(picked.type==='mcq'){
-    testItems[num].optA=picked.optA||''; testItems[num].optB=picked.optB||'';
-    testItems[num].optC=picked.optC||''; testItems[num].optD=picked.optD||'';
-    testItems[num].correct=picked.correct||'A';
-  } else if(picked.type==='tf'){
-    testItems[num].tf=picked.tf||'True';
-  } else if(picked.type==='matching'){
-    testItems[num].pairs=(picked.pairs||[]).map(p=>({left:p.left||'',right:p.right||''}));
-  } else if(picked.type==='open'){
-    testItems[num].rubric=picked.rubric||'';
-  }
-
-  makerAutosave();
-  refreshMakerItem(num);
-  const infoEl2=document.getElementById('maker-bankinfo-'+num);
-  if(infoEl2) infoEl2.textContent=matches.length>1 ? `Match ${idx+1} of ${matches.length} — click again for another` : 'Match found and pulled.';
-  const body=document.getElementById('maker-body-'+num); if(body) body.classList.add('open');
-}
-
 function saveMakerItem(num){
   const slotEl=document.getElementById('maker-item-'+num);
   if(!slotEl) return;
@@ -3785,12 +2711,8 @@ function checkForAutosave(){
 buildDomainGrid();
 renderTable();
 checkForAutosave();
-populateQBDomainSelect();
-populateQBDomainFilters();
-loadBankAutosave();
 loadMakerAutosave();
 loadGeminiSettings();
-renderBankTable();
 setInterval(autosaveTick, 5000);
 window.addEventListener('beforeunload', autosaveTick);
 </script>
