@@ -1732,14 +1732,17 @@ function signInWithGoogle(){
   if(!fbReady){ showAuthMsg('⚠ Firebase is not configured yet — see the setup guide.'); return; }
   document.getElementById('loginSpinner').style.display='block';
   const provider = new firebase.auth.GoogleAuthProvider();
-  // Using signInWithRedirect instead of signInWithPopup: popup-based sign-in relies on
-  // the popup window messaging its result back via postMessage, which modern browsers'
-  // Cross-Origin-Opener-Policy can silently block — the popup completes, but the app
-  // never receives the result, and onAuthStateChanged never fires. Redirect avoids this
-  // entirely since there's no second window or cross-window messaging involved. The page
-  // will navigate away to Google and back; the result is picked up by onAuthStateChanged
-  // (and getRedirectResult, for surfacing errors) once it returns.
-  fbAuth.signInWithRedirect(provider).catch(err=>{
+  // Using signInWithPopup. signInWithRedirect was tried first, but Firebase's own docs
+  // confirm it requires the app itself to be hosted on Firebase Hosting (not GitHub Pages,
+  // or any other host) — otherwise the cross-origin iframe Firebase uses to relay the
+  // redirect result back depends on third-party storage access, which modern Chrome/Safari
+  // block by default. When blocked, getRedirectResult() returns null completely silently —
+  // no error at all — which just sends the user back to the sign-in page. Firebase's own
+  // documentation explicitly lists signInWithPopup as the correct fallback for apps hosted
+  // outside Firebase Hosting. Popup has its own known quirk (a benign Cross-Origin-Opener-
+  // Policy console warning on some browsers), but unlike redirect's silent failure here,
+  // popup sign-in still completes and reports errors when something genuinely goes wrong.
+  fbAuth.signInWithPopup(provider).catch(err=>{
     document.getElementById('loginSpinner').style.display='none';
     showAuthMsg('⚠ Sign-in failed: '+err.message);
   });
@@ -1789,12 +1792,6 @@ const domainNoteEl=document.getElementById('loginDomainNote');
 if(domainNoteEl) domainNoteEl.textContent = fbReady ? `Only @${ALLOWED_EMAIL_DOMAIN} accounts are allowed.` : '';
 
 if(fbReady){
-  // Surface any error specific to completing the redirect sign-in (e.g. unauthorized
-  // domain). Successful sign-ins are handled by onAuthStateChanged below regardless.
-  fbAuth.getRedirectResult().catch(err=>{
-    document.getElementById('loginSpinner').style.display='none';
-    showAuthMsg('⚠ Sign-in failed: '+err.message);
-  });
   fbAuth.onAuthStateChanged(async(user)=>{
     document.getElementById('loginSpinner').style.display='none';
     if(user){
