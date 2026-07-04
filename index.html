@@ -90,6 +90,33 @@ table.qbtbl td{border:1px solid var(--line-soft);padding:7px 9px;font-size:12px;
 .gap-item{padding:6px 10px;background:#fdf0e8;border:1px solid #f0c9a8;border-radius:7px;font-size:12px;color:var(--warn);margin-bottom:5px;}
 .assembled-q{border:1px solid var(--line-soft);border-radius:8px;padding:10px 13px;margin-bottom:9px;background:#fffefb;}
 .assembled-q .qnum{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--maroon-deep);margin-right:6px;}
+/* ── Suggested Item Type legend ── */
+.type-legend{margin-top:18px;border:1px solid var(--line);border-radius:10px;overflow:hidden;}
+.type-legend-title{background:var(--paper-deep);padding:10px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a7a5c;}
+.type-legend-row{display:flex;align-items:center;gap:12px;padding:9px 16px;border-top:1px solid var(--line-soft);font-size:13px;}
+.type-legend-dom{display:flex;align-items:center;gap:7px;min-width:190px;flex-shrink:0;}
+.type-legend-badge{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#fff;padding:2px 8px;border-radius:20px;flex-shrink:0;}
+.type-legend-range{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#8a7a5c;min-width:130px;flex-shrink:0;}
+.type-legend-suggest{color:var(--ink);}
+.type-legend-row.special{background:#faf3e8;}
+/* ── Test Maker ── */
+.maker-progress-wrap{margin-bottom:16px;}
+.maker-progress-bar{height:8px;background:var(--paper-deep);border-radius:20px;overflow:hidden;margin-top:6px;}
+.maker-progress-fill{height:100%;background:var(--good);border-radius:20px;transition:width .2s;}
+.maker-comp-header{font-family:'Source Serif 4',serif;font-weight:700;font-size:15px;color:var(--maroon-deep);margin:22px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--gold);}
+.maker-comp-header:first-child{margin-top:0;}
+.maker-item{border:1px solid var(--line);border-radius:10px;margin-bottom:12px;overflow:hidden;background:#fff;}
+.maker-item.done{border-color:var(--good);}
+.maker-item-head{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--paper-deep);cursor:pointer;}
+.maker-item-num{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--maroon-deep);min-width:28px;}
+.maker-item-status{margin-left:auto;font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;padding:2px 9px;border-radius:20px;}
+.maker-item-status.done{background:#eaf4ee;color:var(--good);}
+.maker-item-status.todo{background:#fdf0e8;color:var(--warn);}
+.maker-item-body{padding:16px;display:none;}
+.maker-item-body.open{display:block;}
+.maker-tip{background:#faf3e8;border:1px solid var(--gold);border-radius:8px;padding:10px 13px;margin-bottom:14px;font-size:12.5px;color:#5a4420;}
+.maker-tip b{color:var(--maroon-deep);}
+.maker-tip .ex{font-style:italic;color:#7a6a4a;margin-top:4px;display:block;}
 /* ── Question Bank: collapsible groups ── */
 .qb-group{border:1px solid var(--line);border-radius:10px;margin-bottom:10px;overflow:hidden;width:100%;max-width:100%;box-sizing:border-box;}
 .qb-group>summary{
@@ -385,6 +412,7 @@ table.tbl-tos tr.total-row td{background:var(--paper-deep);font-weight:700;}
     <div class="app-tabs">
       <div class="app-tab active" id="tabBuilder" onclick="setView('builder')">📋 TOS Builder</div>
       <div class="app-tab" id="tabBank" onclick="setView('bank')">📚 Question Bank</div>
+      <div class="app-tab" id="tabMaker" onclick="setView('maker')">🖊️ Test Maker</div>
       <div class="app-tab" id="tabReview" onclick="setView('review')" style="display:none;">🧑‍💼 Review Dashboard</div>
     </div>
   </div>
@@ -613,6 +641,7 @@ table.tbl-tos tr.total-row td{background:var(--paper-deep);font-weight:700;}
 <section class="card" id="previewCard" style="display:none;">
   <p class="card-title">⑥ TOS Preview</p>
   <div class="tos-scroll"><table class="tbl-tos" id="tosTbl"></table></div>
+  <div id="typeLegend"></div>
   <div class="export-bar">
     <div class="stat-row" id="statRow"></div>
     <div style="display:flex;gap:9px;flex-wrap:wrap;">
@@ -634,8 +663,6 @@ table.tbl-tos tr.total-row td{background:var(--paper-deep);font-weight:700;}
     <button class="btn btn-sm" onclick="downloadAssembledKey()">⬇ Download Answer Key (.txt)</button>
   </div>
 </section>
-
-</div>
 
 <!-- ⑦ AI Prompt Generator -->
 <section class="card" id="promptCard" style="display:none;">
@@ -815,6 +842,55 @@ table.tbl-tos tr.total-row td{background:var(--paper-deep);font-weight:700;}
 
 </div><!-- /view-bank -->
 
+<div class="view" id="view-maker">
+
+<section class="card">
+  <p class="card-title">🖊️ Test Maker</p>
+  <p class="card-desc">Write your test items directly here, one per TOS item slot. Each item shows its suggested format and a quick writing tip based on Bloom's Taxonomy guidance — with optional Gemini AI assistance to draft items for you, which you can still edit afterward.</p>
+  <div id="makerEmpty" class="qb-empty">📋 Generate a TOS first (in TOS Builder), then come back here to write your test.</div>
+
+  <details class="verb-card" id="makerAiSetupCard">
+    <summary>✨ AI Assistance Setup (optional) <span style="font-size:12px;font-weight:400;color:#9a8e76;margin-left:8px;">(click to expand)</span></summary>
+    <div class="verb-body">
+      <div class="field" style="max-width:420px;margin-bottom:16px;">
+        <label>Cloudflare Worker URL <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0a080;">(one for the whole school — ask your admin if unsure)</span></label>
+        <input type="text" id="geminiWorkerUrl" placeholder="https://your-worker-name.yourname.workers.dev" oninput="saveWorkerUrl()">
+        <span style="font-size:11px;color:#9a8e76;">This just fixes a browser restriction — it doesn't need to be your own; one Worker can be shared school-wide.</span>
+      </div>
+      <div class="field" style="max-width:420px;margin-bottom:16px;">
+        <label>Your Gemini API Key <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0a080;">(free — get your own at aistudio.google.com/apikey)</span></label>
+        <input type="password" id="geminiApiKeyPersonal" placeholder="Paste your own free Gemini API key…" oninput="saveGeminiKeyPersonal()">
+        <span style="font-size:11px;color:#9a8e76;">Stored only in this browser. Each teacher uses their own key and their own free usage quota.</span>
+      </div>
+      <div class="field">
+        <label>Reference Material (optional) <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0a080;">— paste lesson notes or text so the AI grounds items in it</span></label>
+        <textarea id="makerRefMaterial" rows="4" placeholder="Paste your lesson notes, textbook excerpt, or article text here — not just a link, since the AI can't browse a URL on its own. Paste the actual content you want it to draw from." style="width:100%;padding:8px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;background:var(--paper);resize:vertical;" oninput="saveMakerRefMaterial()"></textarea>
+      </div>
+    </div>
+  </details>
+
+  <div class="btn-row" id="makerGenAllRow" style="display:none;">
+    <button class="btn btn-gold" id="makerGenAllBtn" onclick="generateAllMakerItems()">✨ Generate All Items with AI</button>
+    <span id="makerGenAllStatus" style="font-size:12px;color:#8a7a5c;"></span>
+  </div>
+
+  <div class="maker-progress-wrap" id="makerProgressWrap" style="display:none;">
+    <div style="display:flex;justify-content:space-between;font-size:12.5px;color:#8a7a5c;">
+      <span id="makerProgressLabel"></span>
+      <span id="makerProgressPct"></span>
+    </div>
+    <div class="maker-progress-bar"><div class="maker-progress-fill" id="makerProgressFill" style="width:0%;"></div></div>
+  </div>
+  <div id="makerItems"></div>
+  <div class="btn-row" id="makerActions" style="display:none;">
+    <button class="btn btn-sm" onclick="downloadMakerTest()">⬇ Download Test (.txt)</button>
+    <button class="btn btn-sm" onclick="downloadMakerKey()">⬇ Download Answer Key (.txt)</button>
+    <button class="btn btn-sm btn-danger" onclick="clearMakerItems()">Clear all written items</button>
+  </div>
+</section>
+
+</div><!-- /view-maker -->
+
 <div class="view" id="view-review">
 
 <section class="card">
@@ -857,6 +933,15 @@ const ABBR={Remembering:'R',Understanding:'U',Application:'App',Analysis:'An',Ev
 const DCOLOR={Remembering:'#7a3b4e',Understanding:'#4f6b3a',Application:'#2f5f6b',Analysis:'#7a5c2e',Evaluating:'#5c4a8a',Creating:'#8a4a2f'};
 // DepEd standard domain % distribution and difficulty mapping
 const DOMAIN_PRESET_PCT={Remembering:30,Understanding:20,Application:20,Analysis:10,Evaluating:10,Creating:10};
+// Suggested item format per domain — mirrors the guidance already given to the AI Prompt Generator
+const DOMAIN_TYPE_SUGGESTION={
+  Remembering:'Multiple Choice or Matching Type',
+  Understanding:'Multiple Choice or True/False',
+  Application:'Multiple Choice',
+  Analysis:'Multiple Choice or Matching Type',
+  Evaluating:'Multiple Choice',
+  Creating:'Multiple Choice'
+};
 const DOMAIN_DIFFICULTY={Remembering:'Easy',Understanding:'Easy to Average',Application:'Average',Analysis:'Average',Evaluating:'Difficult',Creating:'Difficult'};
 const DIFF_COLOR={'Easy':'#4f6b3a','Easy to Average':'#7a8f3a','Average':'#a8862f','Difficult':'#a8531f'};
 // 3-tier grouping matching the DepEd template's Easy/Average/Difficult column pairing (2 domains each)
@@ -918,11 +1003,14 @@ let qbEditingId=null; // if set, saveQuestion() updates instead of inserts
 function setView(v){
   document.getElementById('tabBuilder').classList.toggle('active', v==='builder');
   document.getElementById('tabBank').classList.toggle('active', v==='bank');
+  document.getElementById('tabMaker').classList.toggle('active', v==='maker');
   document.getElementById('tabReview').classList.toggle('active', v==='review');
   document.getElementById('view-builder').classList.toggle('active', v==='builder');
   document.getElementById('view-bank').classList.toggle('active', v==='bank');
+  document.getElementById('view-maker').classList.toggle('active', v==='maker');
   document.getElementById('view-review').classList.toggle('active', v==='review');
   if(v==='bank'){ refreshQBCompList(); renderBankTable(); populateQBDomainFilters(); }
+  if(v==='maker'){ renderTestMaker(); }
   if(v==='review'){ loadSubmissionsForReview(); }
 }
 let term=1;
@@ -1269,8 +1357,14 @@ function generateTOS(){
   if(totalDays<=0){errEl.textContent='Assign No. of Days to at least one competency.';errEl.style.display='block';return;}
   const target=parseInt(document.getElementById('targetTotal').value)||0;
   if(target<=0){errEl.textContent='Enter a valid target item count.';errEl.style.display='block';return;}
-  const itemsPerRow=apportion(comps.map(c=>c.days||0),target);
+  // Reserve the last 2 items for the PISA-like and Open-Ended questions BEFORE apportioning
+  // domains, so their item numbers never overlap with a competency's domain range.
+  const mcqCount=Math.max(target-2,0);
+  const pisaNum=mcqCount+1;
+  const oeNum=mcqCount+2;
+  const itemsPerRow=apportion(comps.map(c=>c.days||0),mcqCount);
   let counter=1;
+  const domainRanges={}; DOMAINS.forEach(d=>domainRanges[d]=[]);
   const rows=comps.map((c,i)=>{
     // Weighted multi-domain distribution:
     // If an objective matches N domains, lower domains get more weight (N, N-1, … 1)
@@ -1300,16 +1394,17 @@ function generateTOS(){
 
     const rowItems=itemsPerRow[i];
     const domItems=apportion(domW,rowItems);
-    const domMap={};const placement=[];
-    DOMAINS.forEach((d,di)=>{domMap[d]=domItems[di];if(domItems[di]>0){const s=counter,e=counter+domItems[di]-1;placement.push(`${ABBR[d]} [${s}${domItems[di]>1?'-'+e:''}]`);counter=e+1;}});
-    return{label:c.label,lessons:c.lessons||'',objectives:c.objs.filter(o=>o.trim()),days:parseFloat(c.days)||0,items:rowItems,pct:c.days/totalDays,domains:domMap,placement:placement.join('\n')};
+    const domMap={};const placement=[];const placementRanges=[];
+    DOMAINS.forEach((d,di)=>{domMap[d]=domItems[di];if(domItems[di]>0){const s=counter,e=counter+domItems[di]-1;placement.push(`${ABBR[d]} [${s}${domItems[di]>1?'-'+e:''}]`);domainRanges[d].push([s,e]);placementRanges.push({domain:d,start:s,end:e});counter=e+1;}});
+    return{label:c.label,lessons:c.lessons||'',objectives:c.objs.filter(o=>o.trim()),days:parseFloat(c.days)||0,items:rowItems,pct:c.days/totalDays,domains:domMap,placement:placement.join('\n'),placementRanges};
   });
-  tosData={rows,target,totalDays,totalItems:rows.reduce((a,r)=>a+r.items,0)};
+  const totalItems=target;
+  tosData={rows,target,totalDays,totalItems,domainRanges,mcqCount,pisaNum,oeNum};
   renderPreview(tosData);
   const subBtn=document.getElementById('submitReviewBtn');
   if(subBtn) subBtn.style.display = currentUser ? 'inline-block' : 'none';
 }
-function renderPreview({rows,target,totalDays,totalItems}){
+function renderPreview({rows,target,totalDays,totalItems,domainRanges,mcqCount,pisaNum,oeNum}){
   const totDom={};DOMAINS.forEach(d=>{totDom[d]=rows.reduce((a,r)=>a+(r.domains[d]||0),0);});
   const tbl=document.getElementById('tosTbl');
   let h=`<thead><tr><th>Learning Competencies and Codes</th><th>No. of Days</th><th>No. of Items</th><th>%</th>`;
@@ -1325,16 +1420,46 @@ function renderPreview({rows,target,totalDays,totalItems}){
     DOMAINS.forEach(d=>h+=`<td class="num">${r.domains[d]||''}</td>`);
     h+=`<td class="placement">${esc(r.placement)}</td></tr>`;
   });
-  h+=`<tr class="total-row"><td>Total</td><td class="num">${totalDays}</td><td class="num">${totalItems}</td><td class="num">100%</td>`;
+  h+=`<tr class="total-row"><td>Total</td><td class="num">${totalDays}</td><td class="num">${mcqCount}</td><td class="num">100%</td>`;
   DOMAINS.forEach(d=>h+=`<td class="num">${totDom[d]}</td>`);
-  h+=`<td class="placement">Total: ${totalItems}</td></tr></tbody>`;
+  h+=`<td class="placement">Total: ${mcqCount} + 2 (#${pisaNum} PISA-like, #${oeNum} Open-Ended) = ${totalItems}</td></tr></tbody>`;
   tbl.innerHTML=h;
-  document.getElementById('statRow').innerHTML=`<div class="stat">Competencies<b>${rows.length}</b></div><div class="stat">Total Days<b>${totalDays}</b></div><div class="stat">Target Items<b>${target}</b></div><div class="stat">Allocated<b>${totalItems}</b></div>`;
+  document.getElementById('statRow').innerHTML=`<div class="stat">Competencies<b>${rows.length}</b></div><div class="stat">Total Days<b>${totalDays}</b></div><div class="stat">Target Items<b>${target}</b></div><div class="stat">Allocated<b>${mcqCount}</b></div>`;
+  renderTypeLegend(totDom,domainRanges,mcqCount,pisaNum,oeNum);
   const card=document.getElementById('previewCard');card.style.display='block';
   setTimeout(()=>card.scrollIntoView({behavior:'smooth',block:'start'}),100);
   // Auto-build the full prompt and reveal prompt card
   buildPrompt('full');
   document.getElementById('promptCard').style.display='block';
+}
+
+function formatRanges(pairs){
+  // Merge a domain's item ranges into a compact display string, e.g. "1-5, 12-14"
+  return pairs.map(([s,e])=>s===e?`${s}`:`${s}-${e}`).join(', ');
+}
+
+function renderTypeLegend(totDom,domainRanges,mcqCount,pisaNum,oeNum){
+  const el=document.getElementById('typeLegend');
+  let rowsHtml='';
+  DOMAINS.forEach(d=>{
+    if(!totDom[d]) return; // skip domains with zero items in this TOS
+    rowsHtml+=`<div class="type-legend-row">
+      <div class="type-legend-dom"><span class="type-legend-badge" style="background:${DCOLOR[d]}">${ABBR[d]}</span>${d} (${totDom[d]} item${totDom[d]>1?'s':''})</div>
+      <div class="type-legend-range">#${esc(formatRanges(domainRanges[d]))}</div>
+      <div class="type-legend-suggest">${DOMAIN_TYPE_SUGGESTION[d]}</div>
+    </div>`;
+  });
+  rowsHtml+=`<div class="type-legend-row special">
+    <div class="type-legend-dom"><span class="type-legend-badge" style="background:#5c4a8a">PISA</span>PISA-like (1 item)</div>
+    <div class="type-legend-range">#${pisaNum}</div>
+    <div class="type-legend-suggest">Reading passage/data + 2 or more sub-items</div>
+  </div>`;
+  rowsHtml+=`<div class="type-legend-row special">
+    <div class="type-legend-dom"><span class="type-legend-badge" style="background:#8a4a2f">OE</span>Open-Ended (1 item)</div>
+    <div class="type-legend-range">#${oeNum}</div>
+    <div class="type-legend-suggest">Constructed response with a simple rubric</div>
+  </div>`;
+  el.innerHTML=`<div class="type-legend"><div class="type-legend-title">Suggested Item Type — by Domain</div>${rowsHtml}</div>`;
 }
 
 /* ── EXPORT ── */
@@ -1343,7 +1468,7 @@ async function exportTOS(){
   const btn=document.getElementById('exportBtn');btn.disabled=true;btn.textContent='Preparing…';
   try{
     if(!tosData)throw new Error('Generate the TOS first.');
-    const{rows,totalDays,totalItems}=tosData; const COLS=11;
+    const{rows,totalDays,totalItems,mcqCount,pisaNum,oeNum}=tosData; const COLS=11;
     const tmplFile=document.getElementById('templateFile');
     const defaultB64 = distMode==='preset' ? TPL_PRESET_B64 : TPL_B64;
     const buf=tmplFile&&tmplFile.files&&tmplFile.files.length?await tmplFile.files[0].arrayBuffer():b64ToAB(defaultB64);
@@ -1441,8 +1566,8 @@ async function exportTOS(){
       cursor++;
     });
     const tRow=ws.getRow(cursor);
-    tRow.getCell(1).value='Total';tRow.getCell(2).value=totalDays;tRow.getCell(3).value=totalItems;tRow.getCell(4).value=1;tRow.getCell(4).numFmt='0%';
-    DOMAINS.forEach((d,di)=>{tRow.getCell(5+di).value=totDom[d]||0;});tRow.getCell(11).value=`Total: ${totalItems}`;
+    tRow.getCell(1).value='Total';tRow.getCell(2).value=totalDays;tRow.getCell(3).value=mcqCount;tRow.getCell(4).value=1;tRow.getCell(4).numFmt='0%';
+    DOMAINS.forEach((d,di)=>{tRow.getCell(5+di).value=totDom[d]||0;});tRow.getCell(11).value=`Total: ${mcqCount} + 2 (Items #${pisaNum} PISA-like, #${oeNum} Open-Ended) = ${totalItems}`;
     applyDiffFill(tRow);
     const out=await wb.xlsx.writeBuffer();
     const fn=`TOS_${(subject||'output').replace(/\s+/g,'_')}_${assess}_${new Date().toISOString().slice(0,10)}.xlsx`;
@@ -1471,10 +1596,11 @@ function buildPrompt(mode){
   const termNames=['1st Term','2nd Term','3rd Term'];
   const termLabel=isExamCode(assess) ? `${termNames[term-1]} — Term ${term} Examination` : `${termNames[term-1]} (${assess})`;
   const school=document.getElementById('si-school').value.trim();
-  // PISA-like and open-ended are counted WITHIN totalItems, not on top of it
-  const mcqCount=Math.max(totalItems-2,0);
-  const pisaNum=mcqCount+1;
-  const oeNum=mcqCount+2;
+  // PISA-like and open-ended are counted WITHIN totalItems, not on top of it — reuse the same
+  // numbers already computed in generateTOS() so the legend and the prompt never disagree
+  const mcqCount=tosData.mcqCount;
+  const pisaNum=tosData.pisaNum;
+  const oeNum=tosData.oeNum;
 
   let prompt='';
 
@@ -1643,6 +1769,7 @@ function applyState(state){
   tosData=null;
   document.getElementById('previewCard').style.display='none';
   document.getElementById('promptCard').style.display='none';
+  const tl=document.getElementById('typeLegend'); if(tl) tl.innerHTML='';
   const ac=document.getElementById('assembledCard'); if(ac) ac.style.display='none';
   assembledTest=null;
 }
@@ -2740,6 +2867,581 @@ async function updateUserRole(uid, role){
   catch(err){ alert('Could not update role: '+err.message); }
 }
 
+/* ═══════════════════════════════════════════════════
+   TEST MAKER (manual — no AI)
+   ═══════════════════════════════════════════════════ */
+let testItems={}; // keyed by item number (string): {type,stem,optA-D,correct,tf,pairs,passage,subItems,rubric}
+
+const DOMAIN_TIP={
+  Remembering:{verbs:'define, identify, list, name, label, select, match, recall',tip:"Ask for a fact, term, or definition with one clearly correct answer.",example:'Define the term ___.'},
+  Understanding:{verbs:'explain, describe, summarize, compare, paraphrase, classify',tip:"Ask the learner to restate or interpret an idea in their own words.",example:'Which statement best explains why ___ happens?'},
+  Application:{verbs:'apply, solve, use, demonstrate, calculate, compute, implement',tip:"Present a new situation and ask the learner to use what they learned to solve it.",example:'Using ___, calculate or solve ___.'},
+  Analysis:{verbs:'analyze, compare, contrast, differentiate, categorize, examine',tip:"Ask the learner to break something into parts or find a relationship or pattern.",example:'Compare ___ and ___. What is the key difference?'},
+  Evaluating:{verbs:'evaluate, judge, justify, defend, critique, recommend, assess',tip:"Ask for a judgment supported by criteria or reasoning.",example:'Which approach is more effective, ___ or ___? Justify your choice.'},
+  Creating:{verbs:'design, formulate, construct, propose, compose, generate, develop',tip:"Ask the learner to identify or choose the best original design or solution among options.",example:'Which design or plan best solves ___? Why?'}
+};
+const PISA_TIP={tip:"Give a short passage, data table, or real-world scenario, then ask 2 or more sub-questions requiring interpretation or application — mirrors PISA's real-world literacy style.",example:'Based on the data shown, what trend do you observe, and what would you predict for next year?'};
+const OE_TIP={tip:"Ask for a written explanation, justification, or demonstration. Pair with a simple 2-3 criteria rubric so scoring stays consistent.",example:'Explain why ___ is important, and give one real-world example.'};
+
+function buildMakerSlots(){
+  if(!tosData) return [];
+  const slots=[];
+  tosData.rows.forEach(r=>{
+    (r.placementRanges||[]).forEach(range=>{
+      for(let n=range.start;n<=range.end;n++){ slots.push({num:n, competency:r.label, domain:range.domain}); }
+    });
+  });
+  slots.sort((a,b)=>a.num-b.num);
+  slots.push({num:tosData.pisaNum, competency:'PISA-like Question', isPisa:true});
+  slots.push({num:tosData.oeNum, competency:'Open-Ended Question', isOE:true});
+  return slots;
+}
+
+function loadMakerAutosave(){
+  try{ const raw=localStorage.getItem('tos_v2_maker_autosave'); testItems=raw?(JSON.parse(raw)||{}):{}; }
+  catch(e){ testItems={}; }
+}
+function makerAutosave(){
+  try{ localStorage.setItem('tos_v2_maker_autosave', JSON.stringify(testItems)); }catch(e){}
+}
+
+function isSlotDone(slot){
+  const it=testItems[slot.num];
+  if(!it) return false;
+  if(slot.isPisa) return !!(it.passage && it.passage.trim()) && (it.subItems||[]).some(s=>s.text&&s.text.trim());
+  if(slot.isOE) return !!(it.stem && it.stem.trim());
+  if(!it.stem || !it.stem.trim()) return false;
+  if(it.type==='matching') return (it.pairs||[]).filter(p=>p.left&&p.right).length>=1;
+  if(it.type==='tf') return true;
+  if(it.type==='mcq'||!it.type) return !!(it.optA&&it.optB&&it.optC&&it.optD);
+  return true;
+}
+
+function renderTestMaker(){
+  const slots=buildMakerSlots();
+  const emptyEl=document.getElementById('makerEmpty');
+  const progWrap=document.getElementById('makerProgressWrap');
+  const actionsEl=document.getElementById('makerActions');
+  const itemsEl=document.getElementById('makerItems');
+  updateMakerGenAllVisibility();
+  if(slots.length===0){
+    emptyEl.style.display='block'; progWrap.style.display='none'; actionsEl.style.display='none'; itemsEl.innerHTML='';
+    return;
+  }
+  emptyEl.style.display='none'; progWrap.style.display='block'; actionsEl.style.display='flex';
+  let html=''; let lastComp=null;
+  slots.forEach(slot=>{
+    if(slot.competency!==lastComp){ html+=`<div class="maker-comp-header">${esc(slot.competency)}</div>`; lastComp=slot.competency; }
+    html+=makerItemHTML(slot);
+  });
+  itemsEl.innerHTML=html;
+  updateMakerProgress();
+}
+
+function makerItemHTML(slot){
+  const it=testItems[slot.num]||{};
+  const done=isSlotDone(slot);
+  const kind = slot.isPisa?'pisa':slot.isOE?'oe':'domain';
+  let tipHtml;
+  if(slot.isPisa){ tipHtml=`<div class="maker-tip"><b>PISA-like</b> — ${PISA_TIP.tip}<span class="ex">e.g. "${PISA_TIP.example}"</span></div>`; }
+  else if(slot.isOE){ tipHtml=`<div class="maker-tip"><b>Open-Ended</b> — ${OE_TIP.tip}<span class="ex">e.g. "${OE_TIP.example}"</span></div>`; }
+  else { const dt=DOMAIN_TIP[slot.domain]; tipHtml=`<div class="maker-tip"><b>${slot.domain}</b> — ${dt.tip}<br><b>Suggested verbs:</b> ${dt.verbs}<span class="ex">e.g. "${dt.example}"</span></div>`; }
+
+  const domBadge = slot.isPisa ? `<span class="qb-type-badge" style="background:#5c4a8a;">PISA</span>` :
+                    slot.isOE ? `<span class="qb-type-badge" style="background:#8a4a2f;">OE</span>` :
+                    `<span class="qb-type-badge" style="background:${DCOLOR[slot.domain]}">${ABBR[slot.domain]}</span>`;
+  const suggested = slot.isPisa ? 'PISA-like' : slot.isOE ? 'Open-Ended' : DOMAIN_TYPE_SUGGESTION[slot.domain];
+
+  let bodyHtml;
+  if(slot.isPisa){
+    const subItems = (it.subItems&&it.subItems.length) ? it.subItems : [{text:'',answer:''},{text:'',answer:''}];
+    bodyHtml=`${tipHtml}
+      <div class="field" style="margin-bottom:12px;">
+        <label>Reading Passage / Data / Scenario</label>
+        <textarea id="maker-passage-${slot.num}" rows="3" style="width:100%;padding:8px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;background:var(--paper);resize:vertical;" oninput="saveMakerItem(${slot.num})">${esc(it.passage||'')}</textarea>
+      </div>
+      <div id="maker-subitems-${slot.num}">
+        ${subItems.map((s,i)=>`<div class="pair-row"><input type="text" class="maker-sub-text" placeholder="Sub-item ${String.fromCharCode(97+i)})" value="${esc(s.text||'')}" oninput="saveMakerItem(${slot.num})"><input type="text" class="maker-sub-answer" placeholder="Answer" value="${esc(s.answer||'')}" oninput="saveMakerItem(${slot.num})" style="max-width:160px;"></div>`).join('')}
+      </div>
+      <button class="btn btn-sm" onclick="addMakerSubItem(${slot.num})">+ Add sub-item</button>
+      <div class="btn-row" style="margin-top:12px;">
+        <button class="btn btn-sm btn-gold" onclick="generateMakerItemAI(${slot.num})">✨ Generate with AI</button>
+        <span id="maker-aiinfo-${slot.num}" style="font-size:11.5px;color:#8a7a5c;"></span>
+      </div>`;
+  } else if(slot.isOE){
+    bodyHtml=`${tipHtml}
+      <div class="field" style="margin-bottom:10px;">
+        <label>Question</label>
+        <textarea id="maker-stem-${slot.num}" rows="2" style="width:100%;padding:8px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;background:var(--paper);resize:vertical;" oninput="saveMakerItem(${slot.num})">${esc(it.stem||'')}</textarea>
+      </div>
+      <div class="field">
+        <label>Simple Scoring Rubric</label>
+        <textarea id="maker-rubric-${slot.num}" rows="2" placeholder="e.g. 3 pts: 1 for definition, 1 for reasoning, 1 for example" style="width:100%;padding:8px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;background:var(--paper);resize:vertical;" oninput="saveMakerItem(${slot.num})">${esc(it.rubric||'')}</textarea>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-sm btn-gold" onclick="generateMakerItemAI(${slot.num})">✨ Generate with AI</button>
+        <span id="maker-aiinfo-${slot.num}" style="font-size:11.5px;color:#8a7a5c;"></span>
+      </div>`;
+  } else {
+    const type=it.type||'mcq';
+    bodyHtml=`${tipHtml}
+      <div class="btn-row" style="margin-top:0;margin-bottom:12px;">
+        <button class="btn btn-sm btn-gold" onclick="pullMakerItemFromBank(${slot.num})">📚 Pull from Bank</button>
+        <button class="btn btn-sm btn-gold" onclick="generateMakerItemAI(${slot.num})">✨ Generate with AI</button>
+        <span id="maker-bankinfo-${slot.num}" style="font-size:11.5px;color:#8a7a5c;"></span>
+        <span id="maker-aiinfo-${slot.num}" style="font-size:11.5px;color:#8a7a5c;"></span>
+      </div>
+      <div class="qb-type-tabs">
+        <button class="qb-type-tab ${type==='mcq'?'active':''}" onclick="setMakerType(${slot.num},'mcq')">Multiple Choice</button>
+        <button class="qb-type-tab ${type==='tf'?'active':''}" onclick="setMakerType(${slot.num},'tf')">True / False</button>
+        <button class="qb-type-tab ${type==='matching'?'active':''}" onclick="setMakerType(${slot.num},'matching')">Matching Type</button>
+        <button class="qb-type-tab ${type==='open'?'active':''}" onclick="setMakerType(${slot.num},'open')">Open-Ended</button>
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>Question / Item Stem</label>
+        <textarea id="maker-stem-${slot.num}" rows="2" style="width:100%;padding:8px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;background:var(--paper);resize:vertical;" oninput="saveMakerItem(${slot.num})">${esc(it.stem||'')}</textarea>
+      </div>
+      <div id="maker-fields-${slot.num}">${makerTypeFieldsHTML(slot.num,type,it)}</div>`;
+  }
+
+  return `<div class="maker-item ${done?'done':''}" id="maker-item-${slot.num}" data-kind="${kind}">
+    <div class="maker-item-head" onclick="toggleMakerItem(${slot.num})">
+      <span class="maker-item-num">#${slot.num}</span>
+      ${domBadge}
+      <span style="font-size:12.5px;color:#6b5f4a;">${esc(suggested)}</span>
+      <span class="maker-item-status ${done?'done':'todo'}">${done?'✓ Written':'Not written'}</span>
+    </div>
+    <div class="maker-item-body" id="maker-body-${slot.num}">${bodyHtml}</div>
+  </div>`;
+}
+
+function makerTypeFieldsHTML(num,type,it){
+  if(type==='open'){
+    return `<div class="field">
+      <label>Simple Scoring Rubric</label>
+      <textarea id="maker-rubric-${num}" rows="2" placeholder="e.g. 3 pts: 1 for definition, 1 for reasoning, 1 for example" style="width:100%;padding:8px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;background:var(--paper);resize:vertical;" oninput="saveMakerItem(${num})">${esc(it.rubric||'')}</textarea>
+    </div>`;
+  }
+  if(type==='tf'){
+    const tf=it.tf||'True';
+    return `<div class="opt-row"><input type="radio" name="makerTF${num}" value="True" ${tf==='True'?'checked':''} onchange="saveMakerItem(${num})"><span>True</span></div>
+      <div class="opt-row"><input type="radio" name="makerTF${num}" value="False" ${tf==='False'?'checked':''} onchange="saveMakerItem(${num})"><span>False</span></div>`;
+  }
+  if(type==='matching'){
+    const pairs=(it.pairs&&it.pairs.length)?it.pairs:[{left:'',right:''},{left:'',right:''}];
+    return `<div id="maker-pairs-${num}">
+        ${pairs.map(p=>`<div class="pair-row"><input type="text" class="maker-pair-left" placeholder="Item…" value="${esc(p.left||'')}" oninput="saveMakerItem(${num})"><span style="color:#9a8e76;">↔</span><input type="text" class="maker-pair-right" placeholder="Match…" value="${esc(p.right||'')}" oninput="saveMakerItem(${num})"><button onclick="this.parentElement.remove();saveMakerItem(${num})">×</button></div>`).join('')}
+      </div>
+      <button class="btn btn-sm" onclick="addMakerPair(${num})">+ Add pair</button>`;
+  }
+  // default: mcq
+  const correct=it.correct||'A';
+  return ['A','B','C','D'].map(L=>`<div class="opt-row"><input type="radio" name="makerCorrect${num}" value="${L}" ${correct===L?'checked':''} onchange="saveMakerItem(${num})"><span style="font-weight:700;width:16px;">${L}</span><input type="text" id="maker-opt${L}-${num}" value="${esc(it['opt'+L]||'')}" oninput="saveMakerItem(${num})"></div>`).join('');
+}
+
+function toggleMakerItem(num){ document.getElementById('maker-body-'+num).classList.toggle('open'); }
+
+function setMakerType(num,type){
+  if(!testItems[num]) testItems[num]={};
+  testItems[num].type=type;
+  document.getElementById('maker-fields-'+num).innerHTML=makerTypeFieldsHTML(num,type,testItems[num]);
+  const item=document.getElementById('maker-item-'+num);
+  const tabs=item.querySelectorAll('.qb-type-tab');
+  tabs.forEach(btn=>btn.classList.remove('active'));
+  tabs[{mcq:0,tf:1,matching:2,open:3}[type]].classList.add('active');
+  saveMakerItem(num);
+}
+
+function addMakerPair(num){
+  const wrap=document.getElementById('maker-pairs-'+num);
+  const row=document.createElement('div'); row.className='pair-row';
+  row.innerHTML=`<input type="text" class="maker-pair-left" placeholder="Item…" oninput="saveMakerItem(${num})"><span style="color:#9a8e76;">↔</span><input type="text" class="maker-pair-right" placeholder="Match…" oninput="saveMakerItem(${num})"><button onclick="this.parentElement.remove();saveMakerItem(${num})">×</button>`;
+  wrap.appendChild(row);
+}
+function addMakerSubItem(num){
+  const wrap=document.getElementById('maker-subitems-'+num);
+  const idx=wrap.children.length;
+  const row=document.createElement('div'); row.className='pair-row';
+  row.innerHTML=`<input type="text" class="maker-sub-text" placeholder="Sub-item ${String.fromCharCode(97+idx)})" oninput="saveMakerItem(${num})"><input type="text" class="maker-sub-answer" placeholder="Answer" oninput="saveMakerItem(${num})" style="max-width:160px;">`;
+  wrap.appendChild(row);
+}
+
+/* Re-render one item's HTML in place from current testItems state, preserving open/closed state */
+function refreshMakerItem(num){
+  const slots=buildMakerSlots();
+  const slot=slots.find(s=>s.num===num);
+  const el=document.getElementById('maker-item-'+num);
+  if(!slot || !el) return;
+  const wasOpen = el.querySelector('.maker-item-body')?.classList.contains('open');
+  el.outerHTML=makerItemHTML(slot);
+  if(wasOpen){ const body=document.getElementById('maker-body-'+num); if(body) body.classList.add('open'); }
+  updateMakerProgress();
+}
+
+/* Pull a matching question from the Question Bank into this item slot.
+   Matches by Competency name OR Lesson tag, same rule used by "Pull Matching Questions from Bank"
+   in the TOS Builder. Repeated clicks cycle through all matches. Fields stay fully editable after pulling. */
+/* ═══════════════════════════════════════════════════
+   GEMINI AI ASSISTANCE (Test Maker)
+   ═══════════════════════════════════════════════════ */
+let GEMINI_WORKER_URL = '';
+let GEMINI_API_KEY_PERSONAL = '';
+let makerRefMaterial = '';
+const GEMINI_MODEL = 'gemini-2.0-flash';
+
+function loadGeminiSettings(){
+  try{ GEMINI_WORKER_URL = localStorage.getItem('tos_v2_gemini_worker_url') || ''; }catch(e){ GEMINI_WORKER_URL=''; }
+  try{ GEMINI_API_KEY_PERSONAL = localStorage.getItem('tos_v2_gemini_key_personal') || ''; }catch(e){ GEMINI_API_KEY_PERSONAL=''; }
+  try{ makerRefMaterial = localStorage.getItem('tos_v2_maker_refmaterial') || ''; }catch(e){ makerRefMaterial=''; }
+  const urlEl=document.getElementById('geminiWorkerUrl'); if(urlEl) urlEl.value=GEMINI_WORKER_URL;
+  const keyEl=document.getElementById('geminiApiKeyPersonal'); if(keyEl) keyEl.value=GEMINI_API_KEY_PERSONAL;
+  const refEl=document.getElementById('makerRefMaterial'); if(refEl) refEl.value=makerRefMaterial;
+}
+function saveWorkerUrl(){
+  GEMINI_WORKER_URL=document.getElementById('geminiWorkerUrl').value.trim();
+  try{ localStorage.setItem('tos_v2_gemini_worker_url', GEMINI_WORKER_URL); }catch(e){}
+  updateMakerGenAllVisibility();
+}
+function saveGeminiKeyPersonal(){
+  GEMINI_API_KEY_PERSONAL=document.getElementById('geminiApiKeyPersonal').value.trim();
+  try{ localStorage.setItem('tos_v2_gemini_key_personal', GEMINI_API_KEY_PERSONAL); }catch(e){}
+  updateMakerGenAllVisibility();
+}
+function saveMakerRefMaterial(){
+  makerRefMaterial=document.getElementById('makerRefMaterial').value;
+  try{ localStorage.setItem('tos_v2_maker_refmaterial', makerRefMaterial); }catch(e){}
+}
+function updateMakerGenAllVisibility(){
+  const row=document.getElementById('makerGenAllRow');
+  if(!row) return;
+  row.style.display = (GEMINI_WORKER_URL && GEMINI_API_KEY_PERSONAL && tosData) ? 'flex' : 'none';
+}
+
+/* Calls a Cloudflare Worker (not Google directly) purely to sidestep the browser
+   CORS restriction that blocks calling Gemini's API directly from a webpage.
+   Each person's own Gemini API key travels WITH the request instead of living on
+   the Worker — so the Worker holds no secret at all and can be freely shared
+   school-wide; usage is always billed against whoever's key was actually sent. */
+async function callGemini(promptText){
+  if(!GEMINI_WORKER_URL) throw new Error('No Worker URL set. Open "AI Assistance Setup" above — see the Cloudflare Worker Setup Guide.');
+  if(!GEMINI_API_KEY_PERSONAL) throw new Error('No Gemini API key set. Open "AI Assistance Setup" above and paste your own free key from aistudio.google.com/apikey.');
+  // Deliberately no 'Content-Type: application/json' header here — setting it turns this
+  // into a "non-simple" CORS request, which forces the browser to send a preflight OPTIONS
+  // request first. Some restrictive networks block or mishandle that preflight even while
+  // letting a plain POST through untouched. Omitting the header avoids the preflight
+  // entirely; the Worker's request.json() parses the body fine regardless of the header.
+  const res=await fetch(GEMINI_WORKER_URL,{
+    method:'POST',
+    body:JSON.stringify({
+      model:GEMINI_MODEL,
+      apiKey:GEMINI_API_KEY_PERSONAL,
+      contents:[{parts:[{text:promptText}]}],
+      generationConfig:{responseMimeType:'application/json', temperature:0.7}
+    })
+  });
+  if(!res.ok){
+    const errBody=await res.text();
+    throw new Error(`Worker/Gemini error (${res.status}): ${errBody.slice(0,200)}`);
+  }
+  const data=await res.json();
+  const text=data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if(!text) throw new Error('Gemini returned an empty response.');
+  return JSON.parse(text);
+}
+
+function refBlock(){
+  return makerRefMaterial.trim() ? `\n\nREFERENCE MATERIAL (ground the question in this content where relevant):\n"""\n${makerRefMaterial.trim()}\n"""\n` : '';
+}
+
+function buildItemGenPrompt(slot){
+  const subject=document.getElementById('si-subject').value.trim()||'the subject';
+  const grade=document.getElementById('si-grade').value.trim()||'the grade level';
+  if(slot.isPisa){
+    return `You are writing ONE PISA-like test item for ${subject}, ${grade}.
+Provide a short reading passage, data table, or real-world scenario, then 2-3 sub-questions requiring interpretation or application.${refBlock()}
+Return ONLY this JSON (no markdown, no explanation):
+{"passage":"...", "subItems":[{"text":"...","answer":"..."},{"text":"...","answer":"..."}]}`;
+  }
+  if(slot.isOE){
+    return `You are writing ONE open-ended test question for ${subject}, ${grade}, competency: "${slot.competency}".
+Require a written explanation, justification, or demonstration. Include a simple 2-3 criterion scoring rubric.${refBlock()}
+Return ONLY this JSON (no markdown, no explanation):
+{"stem":"...", "rubric":"..."}`;
+  }
+  const dt=DOMAIN_TIP[slot.domain];
+  return `You are writing ONE test item for ${subject}, ${grade}.
+Competency: "${slot.competency}"
+Cognitive domain: ${slot.domain} — use verbs like ${dt.verbs}.
+Choose whichever format fits best: multiple-choice (4 options, one correct), true/false, or matching type (pairs).${refBlock()}
+Return ONLY ONE of these JSON shapes (no markdown, no explanation), matching the format you chose:
+{"type":"mcq","stem":"...","optA":"...","optB":"...","optC":"...","optD":"...","correct":"A"}
+{"type":"tf","stem":"...","tf":"True"}
+{"type":"matching","stem":"...","pairs":[{"left":"...","right":"..."},{"left":"...","right":"..."}]}`;
+}
+
+async function generateMakerItemAI(num){
+  const infoEl=document.getElementById('maker-aiinfo-'+num);
+  const slots=buildMakerSlots();
+  const slot=slots.find(s=>s.num===num);
+  if(!slot) return;
+  if(infoEl) infoEl.textContent='✨ Generating…';
+  try{
+    const result=await callGemini(buildItemGenPrompt(slot));
+    if(!testItems[num]) testItems[num]={};
+    if(slot.isPisa){
+      testItems[num].passage=result.passage||'';
+      testItems[num].subItems=(result.subItems||[]).map(s=>({text:s.text||'',answer:s.answer||''}));
+    } else if(slot.isOE){
+      testItems[num].stem=result.stem||'';
+      testItems[num].rubric=result.rubric||'';
+    } else {
+      testItems[num].type=result.type||'mcq';
+      testItems[num].stem=result.stem||'';
+      if(result.type==='tf'){ testItems[num].tf=result.tf||'True'; }
+      else if(result.type==='matching'){ testItems[num].pairs=(result.pairs||[]).map(p=>({left:p.left||'',right:p.right||''})); }
+      else { testItems[num].optA=result.optA||''; testItems[num].optB=result.optB||''; testItems[num].optC=result.optC||''; testItems[num].optD=result.optD||''; testItems[num].correct=result.correct||'A'; }
+    }
+    makerAutosave();
+    refreshMakerItem(num);
+    const body=document.getElementById('maker-body-'+num); if(body) body.classList.add('open');
+    const infoEl2=document.getElementById('maker-aiinfo-'+num); if(infoEl2) infoEl2.textContent='✓ Generated — review and edit as needed.';
+  }catch(err){
+    if(infoEl) infoEl.textContent='⚠ '+err.message;
+  }
+}
+
+function buildAllItemsPrompt(slots){
+  const subject=document.getElementById('si-subject').value.trim()||'the subject';
+  const grade=document.getElementById('si-grade').value.trim()||'the grade level';
+  const list=slots.map(slot=>{
+    if(slot.isPisa) return `{"num":${slot.num}, "kind":"pisa", "competency":"PISA-like"}`;
+    if(slot.isOE) return `{"num":${slot.num}, "kind":"open", "competency":${JSON.stringify(slot.competency)}}`;
+    return `{"num":${slot.num}, "kind":"domain", "domain":"${slot.domain}", "competency":${JSON.stringify(slot.competency)}, "verbs":"${DOMAIN_TIP[slot.domain].verbs}"}`;
+  }).join(',\n');
+  return `You are writing a full set of test items for ${subject}, ${grade}.${refBlock()}
+Below is the list of item slots to fill, each with its number, type of slot, and (for domain slots) the cognitive domain and suggested verbs. For "domain" slots, choose whichever format fits best: multiple-choice, true/false, or matching type — vary the formats naturally rather than making everything multiple-choice.
+
+ITEM SLOTS:
+[${list}]
+
+Return ONLY a JSON array (no markdown, no explanation) with one object per slot, each including "num" matching the slot number, using these shapes:
+- domain slot, MCQ: {"num":1,"type":"mcq","stem":"...","optA":"...","optB":"...","optC":"...","optD":"...","correct":"A"}
+- domain slot, True/False: {"num":2,"type":"tf","stem":"...","tf":"True"}
+- domain slot, Matching: {"num":3,"type":"matching","stem":"...","pairs":[{"left":"...","right":"..."}]}
+- pisa slot: {"num":9,"kind":"pisa","passage":"...","subItems":[{"text":"...","answer":"..."}]}
+- open slot: {"num":10,"kind":"open","stem":"...","rubric":"..."}`;
+}
+
+async function generateAllMakerItems(){
+  const statusEl=document.getElementById('makerGenAllStatus');
+  const btn=document.getElementById('makerGenAllBtn');
+  const slots=buildMakerSlots().filter(s=>!isSlotDone(s)); // only fill items not already written, so manual work is never overwritten
+  if(slots.length===0){ statusEl.textContent='All items are already written — nothing to generate.'; return; }
+  btn.disabled=true;
+  statusEl.textContent=`✨ Generating ${slots.length} item(s)… this may take a moment.`;
+  try{
+    const results=await callGemini(buildAllItemsPrompt(slots));
+    results.forEach(r=>{
+      const num=r.num;
+      if(!testItems[num]) testItems[num]={};
+      if(r.kind==='pisa'){
+        testItems[num].passage=r.passage||'';
+        testItems[num].subItems=(r.subItems||[]).map(s=>({text:s.text||'',answer:s.answer||''}));
+      } else if(r.kind==='open'){
+        testItems[num].stem=r.stem||'';
+        testItems[num].rubric=r.rubric||'';
+      } else {
+        testItems[num].type=r.type||'mcq';
+        testItems[num].stem=r.stem||'';
+        if(r.type==='tf'){ testItems[num].tf=r.tf||'True'; }
+        else if(r.type==='matching'){ testItems[num].pairs=(r.pairs||[]).map(p=>({left:p.left||'',right:p.right||''})); }
+        else { testItems[num].optA=r.optA||''; testItems[num].optB=r.optB||''; testItems[num].optC=r.optC||''; testItems[num].optD=r.optD||''; testItems[num].correct=r.correct||'A'; }
+      }
+    });
+    makerAutosave();
+    renderTestMaker();
+    statusEl.textContent=`✓ Generated ${results.length} item(s). Review each one and edit as needed.`;
+  }catch(err){
+    statusEl.textContent='⚠ '+err.message;
+  }finally{
+    btn.disabled=false;
+  }
+}
+
+function pullMakerItemFromBank(num){
+  const slots=buildMakerSlots();
+  const slot=slots.find(s=>s.num===num);
+  if(!slot || slot.isPisa || slot.isOE) return;
+  const norm=s=>(s||'').trim().toLowerCase();
+  const row=tosData.rows.find(r=>r.label===slot.competency);
+  const rowLessons=((row&&row.lessons)||'').split(';').map(norm).filter(Boolean);
+  const compNorm=norm(slot.competency);
+
+  const matches=bank.filter(q=>{
+    if(q.domain!==slot.domain) return false;
+    const qComp=norm(q.competency), qLes=norm(q.lesson);
+    if(qComp && qComp===compNorm) return true;
+    if(qLes && rowLessons.includes(qLes)) return true;
+    return false;
+  });
+
+  const infoEl=document.getElementById('maker-bankinfo-'+num);
+  if(matches.length===0){
+    if(infoEl) infoEl.textContent='⚠ No matching questions found in the Bank for this competency/domain.';
+    return;
+  }
+
+  if(!testItems[num]) testItems[num]={};
+  const cur=testItems[num]._bankCycle||0;
+  const idx=cur%matches.length;
+  const picked=matches[idx];
+  testItems[num]._bankCycle=cur+1;
+
+  // Copy the picked question's fields into this item — a copy, not a link, so it stays fully editable
+  testItems[num].type=picked.type;
+  testItems[num].stem=picked.stem||'';
+  if(picked.type==='mcq'){
+    testItems[num].optA=picked.optA||''; testItems[num].optB=picked.optB||'';
+    testItems[num].optC=picked.optC||''; testItems[num].optD=picked.optD||'';
+    testItems[num].correct=picked.correct||'A';
+  } else if(picked.type==='tf'){
+    testItems[num].tf=picked.tf||'True';
+  } else if(picked.type==='matching'){
+    testItems[num].pairs=(picked.pairs||[]).map(p=>({left:p.left||'',right:p.right||''}));
+  } else if(picked.type==='open'){
+    testItems[num].rubric=picked.rubric||'';
+  }
+
+  makerAutosave();
+  refreshMakerItem(num);
+  const infoEl2=document.getElementById('maker-bankinfo-'+num);
+  if(infoEl2) infoEl2.textContent=matches.length>1 ? `Match ${idx+1} of ${matches.length} — click again for another` : 'Match found and pulled.';
+  const body=document.getElementById('maker-body-'+num); if(body) body.classList.add('open');
+}
+
+function saveMakerItem(num){
+  const slotEl=document.getElementById('maker-item-'+num);
+  if(!slotEl) return;
+  const kind=slotEl.dataset.kind;
+  if(!testItems[num]) testItems[num]={};
+  const it=testItems[num];
+
+  if(kind==='pisa'){
+    it.passage=document.getElementById('maker-passage-'+num).value;
+    const texts=[...document.querySelectorAll(`#maker-subitems-${num} .maker-sub-text`)].map(i=>i.value);
+    const answers=[...document.querySelectorAll(`#maker-subitems-${num} .maker-sub-answer`)].map(i=>i.value);
+    it.subItems=texts.map((t,i)=>({text:t,answer:answers[i]||''}));
+  } else if(kind==='oe'){
+    it.stem=document.getElementById('maker-stem-'+num).value;
+    it.rubric=document.getElementById('maker-rubric-'+num).value;
+  } else {
+    it.stem=document.getElementById('maker-stem-'+num).value;
+    it.type=it.type||'mcq';
+    if(it.type==='tf'){
+      const checked=document.querySelector(`input[name=makerTF${num}]:checked`);
+      it.tf=checked?checked.value:'True';
+    } else if(it.type==='matching'){
+      const lefts=[...document.querySelectorAll(`#maker-pairs-${num} .maker-pair-left`)].map(i=>i.value);
+      const rights=[...document.querySelectorAll(`#maker-pairs-${num} .maker-pair-right`)].map(i=>i.value);
+      it.pairs=lefts.map((l,i)=>({left:l,right:rights[i]||''}));
+    } else if(it.type==='open'){
+      const el=document.getElementById('maker-rubric-'+num); if(el) it.rubric=el.value;
+    } else {
+      ['A','B','C','D'].forEach(L=>{ const el=document.getElementById(`maker-opt${L}-${num}`); if(el) it['opt'+L]=el.value; });
+      const checked=document.querySelector(`input[name=makerCorrect${num}]:checked`);
+      it.correct=checked?checked.value:'A';
+    }
+  }
+  makerAutosave();
+  updateMakerItemStatus(num);
+  updateMakerProgress();
+}
+
+function updateMakerItemStatus(num){
+  const slots=buildMakerSlots();
+  const slot=slots.find(s=>s.num==num);
+  if(!slot) return;
+  const done=isSlotDone(slot);
+  const el=document.getElementById('maker-item-'+num);
+  if(!el) return;
+  el.classList.toggle('done',done);
+  const statusEl=el.querySelector('.maker-item-status');
+  statusEl.classList.toggle('done',done);
+  statusEl.classList.toggle('todo',!done);
+  statusEl.textContent=done?'✓ Written':'Not written';
+}
+
+function updateMakerProgress(){
+  const slots=buildMakerSlots();
+  if(slots.length===0) return;
+  const doneCount=slots.filter(isSlotDone).length;
+  document.getElementById('makerProgressLabel').textContent=`${doneCount} of ${slots.length} items written`;
+  document.getElementById('makerProgressPct').textContent=`${Math.round(doneCount/slots.length*100)}%`;
+  document.getElementById('makerProgressFill').style.width=(doneCount/slots.length*100)+'%';
+}
+
+function clearMakerItems(){
+  if(!confirm('Clear all written test items? This cannot be undone.')) return;
+  testItems={};
+  makerAutosave();
+  renderTestMaker();
+}
+
+function downloadMakerTest(){
+  const slots=buildMakerSlots();
+  let out='';
+  slots.forEach(slot=>{
+    const it=testItems[slot.num]||{};
+    out+=`${slot.num}. `;
+    if(slot.isPisa){
+      out+=`${it.passage||'[not written]'}\n`;
+      (it.subItems||[]).forEach((s,i)=>{ out+=`   ${String.fromCharCode(97+i)}) ${s.text||''}\n`; });
+      out+='\n';
+    } else if(slot.isOE){
+      out+=`${it.stem||'[not written]'}\n\n`;
+    } else if(it.type==='tf'){
+      out+=`${it.stem||'[not written]'} (True/False)\n\n`;
+    } else if(it.type==='matching'){
+      out+=`${it.stem||'[not written]'}\n`+(it.pairs||[]).map(p=>`   ${p.left} ↔ ${p.right}`).join('\n')+'\n\n';
+    } else if(it.type==='open'){
+      out+=`${it.stem||'[not written]'}\n\n`;
+    } else {
+      out+=`${it.stem||'[not written]'}\nA. ${it.optA||''}\nB. ${it.optB||''}\nC. ${it.optC||''}\nD. ${it.optD||''}\n\n`;
+    }
+  });
+  const blob=new Blob([out],{type:'text/plain'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=`Test_${new Date().toISOString().slice(0,10)}.txt`; a.rel='noopener';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+}
+
+function downloadMakerKey(){
+  const slots=buildMakerSlots();
+  let out='ANSWER KEY\n\n';
+  slots.forEach(slot=>{
+    const it=testItems[slot.num]||{};
+    if(slot.isPisa){
+      out+=`${slot.num}. `+(it.subItems||[]).map((s,i)=>`${String.fromCharCode(97+i)}) ${s.answer||''}`).join('; ')+'\n';
+    } else if(slot.isOE){
+      out+=`${slot.num}. (see rubric) ${it.rubric||''}\n`;
+    } else if(it.type==='tf'){
+      out+=`${slot.num}. ${it.tf||''}\n`;
+    } else if(it.type==='matching'){
+      out+=`${slot.num}. `+(it.pairs||[]).map(p=>`${p.left}→${p.right}`).join(', ')+'\n';
+    } else if(it.type==='open'){
+      out+=`${slot.num}. (see rubric) ${it.rubric||''}\n`;
+    } else {
+      out+=`${slot.num}. ${it.correct||''}\n`;
+    }
+  });
+  const blob=new Blob([out],{type:'text/plain'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=`Answer_Key_${new Date().toISOString().slice(0,10)}.txt`; a.rel='noopener';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+}
+
 function checkForAutosave(){
   try{
     const raw=localStorage.getItem(AUTOSAVE_KEY);
@@ -2760,6 +3462,8 @@ checkForAutosave();
 populateQBDomainSelect();
 populateQBDomainFilters();
 loadBankAutosave();
+loadMakerAutosave();
+loadGeminiSettings();
 renderBankTable();
 setInterval(autosaveTick, 5000);
 window.addEventListener('beforeunload', autosaveTick);
