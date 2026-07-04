@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>TOS Generator v2 — SNHS</title>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs. .com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
@@ -2583,7 +2583,14 @@ function signInWithGoogle(){
   if(!fbReady){ showAuthMsg('⚠ Firebase is not configured yet — see the setup guide.'); return; }
   document.getElementById('loginSpinner').style.display='block';
   const provider = new firebase.auth.GoogleAuthProvider();
-  fbAuth.signInWithPopup(provider).catch(err=>{
+  // Using signInWithRedirect instead of signInWithPopup: popup-based sign-in relies on
+  // the popup window messaging its result back via postMessage, which modern browsers'
+  // Cross-Origin-Opener-Policy can silently block — the popup completes, but the app
+  // never receives the result, and onAuthStateChanged never fires. Redirect avoids this
+  // entirely since there's no second window or cross-window messaging involved. The page
+  // will navigate away to Google and back; the result is picked up by onAuthStateChanged
+  // (and getRedirectResult, for surfacing errors) once it returns.
+  fbAuth.signInWithRedirect(provider).catch(err=>{
     document.getElementById('loginSpinner').style.display='none';
     showAuthMsg('⚠ Sign-in failed: '+err.message);
   });
@@ -2633,6 +2640,12 @@ const domainNoteEl=document.getElementById('loginDomainNote');
 if(domainNoteEl) domainNoteEl.textContent = fbReady ? `Only @${ALLOWED_EMAIL_DOMAIN} accounts are allowed.` : '';
 
 if(fbReady){
+  // Surface any error specific to completing the redirect sign-in (e.g. unauthorized
+  // domain). Successful sign-ins are handled by onAuthStateChanged below regardless.
+  fbAuth.getRedirectResult().catch(err=>{
+    document.getElementById('loginSpinner').style.display='none';
+    showAuthMsg('⚠ Sign-in failed: '+err.message);
+  });
   fbAuth.onAuthStateChanged(async(user)=>{
     document.getElementById('loginSpinner').style.display='none';
     if(user){
