@@ -862,6 +862,11 @@ table.tbl-tos tr.total-row td{background:var(--paper-deep);font-weight:700;}
         <input type="password" id="geminiApiKeyPersonal" placeholder="Paste your own free Gemini API key…" oninput="saveGeminiKeyPersonal()">
         <span style="font-size:11px;color:#9a8e76;">Stored only in this browser. Each teacher uses their own key and their own free usage quota.</span>
       </div>
+      <div class="field" style="max-width:300px;margin-bottom:16px;">
+        <label>Gemini Model <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0a080;">(Google retires old model names — update here if needed)</span></label>
+        <input type="text" id="geminiModelName" placeholder="gemini-2.5-flash" oninput="saveGeminiModelName()">
+        <span style="font-size:11px;color:#9a8e76;">If AI generation ever starts failing with a "quota" or "429" error even on a fresh key, this is the first thing to check — check <a href="https://ai.google.dev/gemini-api/docs/deprecations" target="_blank" rel="noopener">Google's deprecation page</a> for the current model name.</span>
+      </div>
       <div class="field">
         <label>Reference Material (optional) <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0a080;">— paste lesson notes or text so the AI grounds items in it</span></label>
         <textarea id="makerRefMaterial" rows="4" placeholder="Paste your lesson notes, textbook excerpt, or article text here — not just a link, since the AI can't browse a URL on its own. Paste the actual content you want it to draw from." style="width:100%;padding:8px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;background:var(--paper);resize:vertical;" oninput="saveMakerRefMaterial()"></textarea>
@@ -3086,19 +3091,31 @@ function refreshMakerItem(num){
    ═══════════════════════════════════════════════════ */
 let GEMINI_WORKER_URL = '';
 let GEMINI_API_KEY_PERSONAL = '';
+let GEMINI_MODEL = 'gemini-2.5-flash'; // default — editable in AI Assistance Setup since Google periodically retires model names
 let makerRefMaterial = '';
-const GEMINI_MODEL = 'gemini-2.0-flash';
 
+function normalizeWorkerUrl(url){
+  url=(url||'').trim();
+  if(url && !/^https?:\/\//i.test(url)) url='https://'+url;
+  return url.replace(/\/+$/,''); // also strip any trailing slash
+}
 function loadGeminiSettings(){
-  try{ GEMINI_WORKER_URL = localStorage.getItem('tos_v2_gemini_worker_url') || ''; }catch(e){ GEMINI_WORKER_URL=''; }
+  try{ GEMINI_WORKER_URL = normalizeWorkerUrl(localStorage.getItem('tos_v2_gemini_worker_url') || ''); }catch(e){ GEMINI_WORKER_URL=''; }
   try{ GEMINI_API_KEY_PERSONAL = localStorage.getItem('tos_v2_gemini_key_personal') || ''; }catch(e){ GEMINI_API_KEY_PERSONAL=''; }
+  try{ GEMINI_MODEL = localStorage.getItem('tos_v2_gemini_model') || 'gemini-2.5-flash'; }catch(e){ GEMINI_MODEL='gemini-2.5-flash'; }
   try{ makerRefMaterial = localStorage.getItem('tos_v2_maker_refmaterial') || ''; }catch(e){ makerRefMaterial=''; }
   const urlEl=document.getElementById('geminiWorkerUrl'); if(urlEl) urlEl.value=GEMINI_WORKER_URL;
   const keyEl=document.getElementById('geminiApiKeyPersonal'); if(keyEl) keyEl.value=GEMINI_API_KEY_PERSONAL;
+  const modelEl=document.getElementById('geminiModelName'); if(modelEl) modelEl.value=GEMINI_MODEL;
   const refEl=document.getElementById('makerRefMaterial'); if(refEl) refEl.value=makerRefMaterial;
+  // If the stored value needed fixing (missing https://, trailing slash), write the
+  // corrected version back to storage and reflect it in the field immediately.
+  if(urlEl && GEMINI_WORKER_URL) urlEl.value=GEMINI_WORKER_URL;
+  try{ if(GEMINI_WORKER_URL) localStorage.setItem('tos_v2_gemini_worker_url', GEMINI_WORKER_URL); }catch(e){}
 }
 function saveWorkerUrl(){
-  GEMINI_WORKER_URL=document.getElementById('geminiWorkerUrl').value.trim();
+  GEMINI_WORKER_URL=normalizeWorkerUrl(document.getElementById('geminiWorkerUrl').value);
+  document.getElementById('geminiWorkerUrl').value=GEMINI_WORKER_URL; // reflect the corrected value back into the field
   try{ localStorage.setItem('tos_v2_gemini_worker_url', GEMINI_WORKER_URL); }catch(e){}
   updateMakerGenAllVisibility();
 }
@@ -3106,6 +3123,10 @@ function saveGeminiKeyPersonal(){
   GEMINI_API_KEY_PERSONAL=document.getElementById('geminiApiKeyPersonal').value.trim();
   try{ localStorage.setItem('tos_v2_gemini_key_personal', GEMINI_API_KEY_PERSONAL); }catch(e){}
   updateMakerGenAllVisibility();
+}
+function saveGeminiModelName(){
+  GEMINI_MODEL=document.getElementById('geminiModelName').value.trim() || 'gemini-2.5-flash';
+  try{ localStorage.setItem('tos_v2_gemini_model', GEMINI_MODEL); }catch(e){}
 }
 function saveMakerRefMaterial(){
   makerRefMaterial=document.getElementById('makerRefMaterial').value;
