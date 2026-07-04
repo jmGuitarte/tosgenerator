@@ -2427,13 +2427,21 @@ function loadGeminiSettings(){
    everyone), but only an Admin can WRITE it — see the security rule in the setup guide. */
 async function loadAiConfig(){
   if(!fbReady || !currentUser) return;
+  let legacyWorkerUrl='', legacyModel='';
+  try{ legacyWorkerUrl = normalizeWorkerUrl(localStorage.getItem('tos_v2_gemini_worker_url')||''); }catch(e){}
+  try{ legacyModel = localStorage.getItem('tos_v2_gemini_model')||''; }catch(e){}
   try{
     const snap=await fbDb.collection('settings').doc('aiConfig').get();
     const data=snap.exists ? snap.data() : {};
-    GEMINI_WORKER_URL = normalizeWorkerUrl(data.workerUrl||'');
-    GEMINI_MODEL = data.model || 'gemini-2.5-flash';
+    // Fall back to this browser's old (pre-shared-setting) value if the shared config
+    // hasn't been saved yet — so an admin who already had this working doesn't need to
+    // retype anything, just open AI Assistance Setup and click Save once to migrate it.
+    GEMINI_WORKER_URL = normalizeWorkerUrl(data.workerUrl||'') || legacyWorkerUrl;
+    GEMINI_MODEL = data.model || legacyModel || 'gemini-2.5-flash';
   }catch(err){
     console.warn('Could not load AI config:', err);
+    GEMINI_WORKER_URL = legacyWorkerUrl;
+    GEMINI_MODEL = legacyModel || 'gemini-2.5-flash';
   }
   renderAiConfigUI();
   updateMakerGenAllVisibility();
