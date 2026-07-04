@@ -849,6 +849,19 @@ table.tbl-tos tr.total-row td{background:var(--paper-deep);font-weight:700;}
   <p class="card-desc">Write your test items directly here, one per TOS item slot. Each item shows its suggested format and a quick writing tip based on Bloom's Taxonomy guidance — with optional Gemini AI assistance to draft items for you, which you can still edit afterward.</p>
   <div id="makerEmpty" class="qb-empty">📋 Generate a TOS first (in TOS Builder), then come back here to write your test.</div>
 
+  <details class="verb-card" id="cloudTestsCard" style="display:none;">
+    <summary>☁️ Cloud Tests <span style="font-size:12px;font-weight:400;color:#9a8e76;margin-left:8px;">(saved to your account, visible from any device)</span></summary>
+    <div class="verb-body">
+      <p style="font-size:13px;color:#6b5f4a;margin-bottom:12px;">Each saved test is tagged to the subject, grade, and term it was written for, so you can safely switch between different tests without losing or mixing up work.</p>
+      <div id="loadedTestBanner" style="display:none;background:#fdf6e6;border:1px solid var(--gold);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12.5px;color:#5a4420;"></div>
+      <div class="btn-row">
+        <button class="btn btn-primary btn-sm" onclick="saveCurrentTestToCloud()">💾 Save Current Test to Cloud</button>
+        <button class="btn btn-sm" onclick="unloadCloudTest()" id="switchToLiveBtn" style="display:none;">↩ Switch back to current TOS</button>
+      </div>
+      <div id="cloudTestsList" style="margin-top:14px;"></div>
+    </div>
+  </details>
+
   <details class="verb-card" id="makerAiSetupCard">
     <summary>✨ AI Assistance Setup (optional) <span style="font-size:12px;font-weight:400;color:#9a8e76;margin-left:8px;">(click to expand)</span></summary>
     <div class="verb-body">
@@ -983,7 +996,7 @@ const firebaseConfig = {
   projectId: "snhs-tos-generator",
   storageBucket: "snhs-tos-generator.firebasestorage.app",
   messagingSenderId: "118810613515",
-  appId: "1:118810613515:web:e23d5a5992f0bff60ff40e"
+  appId: "1:118810613515:web:6569fda91264fde00ff40e"
 };
 const ALLOWED_EMAIL_DOMAIN = "deped.gov.ph"; // change to your school's email domain
 
@@ -1405,6 +1418,7 @@ function generateTOS(){
   });
   const totalItems=target;
   tosData={rows,target,totalDays,totalItems,domainRanges,mcqCount,pisaNum,oeNum};
+  loadedCloudTestMeta=null; currentCloudTestId=null; // generating a new TOS always reverts Test Maker to live mode
   renderPreview(tosData);
   const subBtn=document.getElementById('submitReviewBtn');
   if(subBtn) subBtn.style.display = currentUser ? 'inline-block' : 'none';
@@ -2632,9 +2646,12 @@ if(fbReady){
       currentRole = await ensureUserDoc(user);
       updateAuthUI();
       loadBankFromCloud();
+      loadCloudTestsList();
+      const ctc=document.getElementById('cloudTestsCard'); if(ctc) ctc.style.display='block';
     } else {
       currentUser=null; currentRole=null;
       updateAuthUI();
+      const ctc=document.getElementById('cloudTestsCard'); if(ctc) ctc.style.display='none';
     }
   });
 } else {
@@ -2711,7 +2728,13 @@ async function submitForReview(){
         num:it.num, domain:it.domain, competency:it.competency,
         stem: it.question ? it.question.stem : null,
         type: it.question ? it.question.type : null
-      })) : null
+      })) : null,
+      // Only attach Test Maker content when it genuinely corresponds to this live TOS
+      // (not a different test loaded from the cloud), so submissions never mix content
+      // from two unrelated tests.
+      testMakerSnapshot: (!loadedCloudTestMeta && Object.keys(testItems).length>0)
+        ? { slots: buildMakerSlots(), testItems }
+        : null
     };
 
     await fbDb.collection('submissions').add(payload);
@@ -2794,6 +2817,33 @@ function openSubmission(id){
     }).join('') + '</div>';
   }
 
+  let testMakerHtml='';
+  if(s.testMakerSnapshot && s.testMakerSnapshot.slots && s.testMakerSnapshot.slots.length){
+    const { slots: mSlots, testItems: mItems } = s.testMakerSnapshot;
+    testMakerHtml = `<h4 style="font-family:'Source Serif 4',serif;color:var(--maroon-deep);margin-top:20px;margin-bottom:10px;">📝 Test Items (written by the teacher)</h4><div>` +
+      mSlots.map(slot=>{
+        const it=mItems[slot.num]||{};
+        let body;
+        if(slot.isPisa){
+          body = it.passage ? `${esc(it.passage)}<br>` + (it.subItems||[]).map((sub,i)=>`${String.fromCharCode(97+i)}) ${esc(sub.text||'')}`).join('<br>') : `<em style="color:var(--warn);">— not written —</em>`;
+        } else if(slot.isOE){
+          body = it.stem ? `${esc(it.stem)}<br><span style="font-size:11px;color:#8a7a5c;">Rubric: ${esc(it.rubric||'—')}</span>` : `<em style="color:var(--warn);">— not written —</em>`;
+        } else if(!it.stem){
+          body = `<em style="color:var(--warn);">— not written —</em>`;
+        } else if(it.type==='tf'){
+          body = `${esc(it.stem)} <em>(True/False — answer: ${esc(it.tf||'')})</em>`;
+        } else if(it.type==='matching'){
+          body = `${esc(it.stem)}<br>` + (it.pairs||[]).map(p=>`${esc(p.left)} ↔ ${esc(p.right)}`).join('<br>');
+        } else if(it.type==='open'){
+          body = `${esc(it.stem)}<br><span style="font-size:11px;color:#8a7a5c;">Rubric: ${esc(it.rubric||'—')}</span>`;
+        } else {
+          body = `${esc(it.stem)}<br>A. ${esc(it.optA||'')} &nbsp; B. ${esc(it.optB||'')} &nbsp; C. ${esc(it.optC||'')} &nbsp; D. ${esc(it.optD||'')} <em style="color:#8a7a5c;">(correct: ${esc(it.correct||'')})</em>`;
+        }
+        const domBadge = slot.isPisa?'PISA':slot.isOE?'OE':ABBR[slot.domain];
+        return `<div class="assembled-q"><span class="qnum">${slot.num}.</span><span style="font-size:10.5px;color:#8a7a5c;">[${domBadge}]</span> ${body}</div>`;
+      }).join('') + `</div>`;
+  }
+
   const statuses=['Pending','Approved','NeedsRevision'];
   const statusLabels={Pending:'Pending',Approved:'Approved',NeedsRevision:'Needs Revision'};
   const statusRow = statuses.map(st=>`<button class="rd-status-btn ${st} ${s.status===st?'active':''}" onclick="setSubmissionStatus('${s.id}','${st}')">${statusLabels[st]}</button>`).join('');
@@ -2810,6 +2860,7 @@ function openSubmission(id){
     <p style="font-size:12.5px;color:#8a7a5c;margin-bottom:14px;">Submitted by ${esc(s.teacherName)} (${esc(s.teacherEmail)}) · ${esc(s.termLabel||'')}</p>
     <div class="tos-scroll">${tosHtml}</div>
     ${assembledHtml}
+    ${testMakerHtml}
     <div class="rd-status-row">${statusRow}</div>
     <div style="margin-top:10px;">
       <textarea id="rdCommentInput" rows="2" placeholder="Leave a comment…" style="width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;background:var(--paper);resize:vertical;"></textarea>
@@ -2888,7 +2939,11 @@ const DOMAIN_TIP={
 const PISA_TIP={tip:"Give a short passage, data table, or real-world scenario, then ask 2 or more sub-questions requiring interpretation or application — mirrors PISA's real-world literacy style.",example:'Based on the data shown, what trend do you observe, and what would you predict for next year?'};
 const OE_TIP={tip:"Ask for a written explanation, justification, or demonstration. Pair with a simple 2-3 criteria rubric so scoring stays consistent.",example:'Explain why ___ is important, and give one real-world example.'};
 
+let loadedCloudTestMeta=null; // when a saved cloud test is loaded, its own slot snapshot takes priority over the live TOS
+let currentCloudTestId=null;  // if set, "Save" updates this doc instead of creating a new one
+
 function buildMakerSlots(){
+  if(loadedCloudTestMeta) return loadedCloudTestMeta.slots;
   if(!tosData) return [];
   const slots=[];
   tosData.rows.forEach(r=>{
@@ -2929,6 +2984,7 @@ function renderTestMaker(){
   const actionsEl=document.getElementById('makerActions');
   const itemsEl=document.getElementById('makerItems');
   updateMakerGenAllVisibility();
+  updateLoadedTestBanner();
   if(slots.length===0){
     emptyEl.style.display='block'; progWrap.style.display='none'; actionsEl.style.display='none'; itemsEl.innerHTML='';
     return;
@@ -2941,6 +2997,117 @@ function renderTestMaker(){
   });
   itemsEl.innerHTML=html;
   updateMakerProgress();
+}
+
+/* ═══════════════════════════════════════════════════
+   CLOUD TESTS — saved tests tagged to their source TOS,
+   private per teacher, synced via Firestore
+   ═══════════════════════════════════════════════════ */
+let cloudTests=[];
+
+function suggestTestTitle(){
+  const subject=document.getElementById('si-subject').value.trim()||'Untitled Subject';
+  const grade=document.getElementById('si-grade').value.trim();
+  const termNames=['1st Term','2nd Term','3rd Term'];
+  const assessLabel=isExamCode(assess) ? `Term ${term} Examination` : assess;
+  return `${subject}${grade?' — '+grade:''} — ${termNames[term-1]} (${assessLabel})`;
+}
+
+async function loadCloudTestsList(){
+  if(!fbReady || !currentUser) return;
+  try{
+    const snap=await fbDb.collection('users').doc(currentUser.uid).collection('tests').orderBy('savedAt','desc').get();
+    cloudTests=snap.docs.map(d=>({ id:d.id, ...d.data() }));
+    renderCloudTestsList();
+  }catch(err){ console.warn('Could not load cloud tests:', err); }
+}
+
+function renderCloudTestsList(){
+  const el=document.getElementById('cloudTestsList');
+  if(!el) return;
+  if(cloudTests.length===0){ el.innerHTML='<div class="qb-empty">No saved tests yet.</div>'; return; }
+  el.innerHTML=cloudTests.map(t=>{
+    const dt=t.savedAt&&t.savedAt.toDate ? t.savedAt.toDate().toLocaleString([], {dateStyle:'medium',timeStyle:'short'}) : '';
+    const itemCount=t.slots?t.slots.length:0;
+    const writtenCount=t.testItems?Object.keys(t.testItems).length:0;
+    return `<div class="admin-users-row">
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:600;">${esc(t.title||'Untitled Test')}</div>
+        <div style="font-size:11px;color:#8a7a5c;">${writtenCount} of ${itemCount} items written · saved ${dt}</div>
+      </div>
+      <button class="btn btn-sm" onclick="loadCloudTest('${t.id}')">Load</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteCloudTest('${t.id}')">Delete</button>
+    </div>`;
+  }).join('');
+}
+
+async function saveCurrentTestToCloud(){
+  if(!fbReady || !currentUser){ alert('Sign in first to save tests to the cloud.'); return; }
+  const slots=buildMakerSlots();
+  if(slots.length===0){ alert('Nothing to save yet — generate a TOS or load a test first.'); return; }
+  const defaultTitle = loadedCloudTestMeta ? loadedCloudTestMeta.title : suggestTestTitle();
+  const title=prompt('Save this test as:', defaultTitle);
+  if(title===null) return; // cancelled
+  const payload={
+    title: title.trim()||defaultTitle,
+    subject: document.getElementById('si-subject').value.trim(),
+    grade: document.getElementById('si-grade').value.trim(),
+    slots,
+    testItems,
+    savedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  try{
+    const col=fbDb.collection('users').doc(currentUser.uid).collection('tests');
+    if(currentCloudTestId){
+      await col.doc(currentCloudTestId).set(payload);
+    } else {
+      const ref=await col.add(payload);
+      currentCloudTestId=ref.id;
+    }
+    loadedCloudTestMeta={title:payload.title, slots};
+    await loadCloudTestsList();
+    updateLoadedTestBanner();
+    alert('✓ Saved to the cloud.');
+  }catch(err){ alert('Could not save: '+err.message); }
+}
+
+function loadCloudTest(id){
+  const t=cloudTests.find(x=>x.id===id);
+  if(!t) return;
+  loadedCloudTestMeta={ title:t.title, slots:t.slots||[] };
+  currentCloudTestId=id;
+  testItems=JSON.parse(JSON.stringify(t.testItems||{}));
+  makerAutosave();
+  renderTestMaker();
+}
+
+async function deleteCloudTest(id){
+  if(!confirm('Delete this saved test? This cannot be undone.')) return;
+  try{
+    await fbDb.collection('users').doc(currentUser.uid).collection('tests').doc(id).delete();
+    if(currentCloudTestId===id) unloadCloudTest();
+    await loadCloudTestsList();
+  }catch(err){ alert('Could not delete: '+err.message); }
+}
+
+function unloadCloudTest(){
+  loadedCloudTestMeta=null;
+  currentCloudTestId=null;
+  renderTestMaker();
+}
+
+function updateLoadedTestBanner(){
+  const banner=document.getElementById('loadedTestBanner');
+  const switchBtn=document.getElementById('switchToLiveBtn');
+  if(!banner) return;
+  if(loadedCloudTestMeta){
+    banner.style.display='block';
+    banner.innerHTML=`📍 Currently editing: <strong>${esc(loadedCloudTestMeta.title)}</strong> (loaded from the cloud)`;
+    if(switchBtn) switchBtn.style.display='inline-block';
+  } else {
+    banner.style.display='none';
+    if(switchBtn) switchBtn.style.display='none';
+  }
 }
 
 function makerItemHTML(slot){
