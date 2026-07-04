@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>TOS Generator v2 — SNHS</title>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdnjs. .com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
@@ -428,6 +428,19 @@ table.tbl-tos tr.total-row td{background:var(--paper-deep);font-weight:700;}
 </div>
 
 <div class="view active" id="view-builder">
+
+<details class="verb-card" id="cloudDraftsCard" style="display:none;">
+  <summary>☁️ Cloud TOS Drafts <span style="font-size:12px;font-weight:400;color:#9a8e76;margin-left:8px;">(saved to your account, visible from any device)</span></summary>
+  <div class="verb-body">
+    <p style="font-size:13px;color:#6b5f4a;margin-bottom:12px;">Save the current TOS-in-progress — school info, competencies, objectives, everything — to your account, and pick it up later from any device.</p>
+    <div id="loadedDraftBanner" style="display:none;background:#fdf6e6;border:1px solid var(--gold);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12.5px;color:#5a4420;"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary btn-sm" onclick="saveCurrentDraftToCloud()">💾 Save Current TOS to Cloud</button>
+    </div>
+    <div id="cloudDraftsList" style="margin-top:14px;"></div>
+  </div>
+</details>
+
 <!-- ① School Information -->
 <section class="card">
   <p class="card-title">① School Information</p>
@@ -1765,6 +1778,8 @@ function collectState(){
 
 function applyState(state){
   if(!state) return;
+  currentCloudDraftId=null; // reset here; loadCloudDraft() re-establishes this right after calling applyState()
+  if(typeof updateLoadedDraftBanner==='function') updateLoadedDraftBanner(null);
   document.getElementById('si-school').value=state.school||'';
   document.getElementById('si-id').value=state.schoolId||'';
   if(state.level) document.getElementById('si-level').value=state.level;
@@ -1791,6 +1806,103 @@ function applyState(state){
   const tl=document.getElementById('typeLegend'); if(tl) tl.innerHTML='';
   const ac=document.getElementById('assembledCard'); if(ac) ac.style.display='none';
   assembledTest=null;
+}
+
+/* ═══════════════════════════════════════════════════
+   CLOUD TOS DRAFTS — private per teacher, synced via Firestore.
+   Reuses the same collectState()/applyState() already built for local Save/Load Draft.
+   ═══════════════════════════════════════════════════ */
+let cloudDrafts=[];
+let currentCloudDraftId=null;
+
+function suggestDraftTitle(){
+  const subject=document.getElementById('si-subject').value.trim()||'Untitled Subject';
+  const grade=document.getElementById('si-grade').value.trim();
+  const termNames=['1st Term','2nd Term','3rd Term'];
+  const assessLabel=isExamCode(assess) ? `Term ${term} Examination` : assess;
+  return `${subject}${grade?' — '+grade:''} — ${termNames[term-1]} (${assessLabel})`;
+}
+
+async function loadCloudDraftsList(){
+  if(!fbReady || !currentUser) return;
+  try{
+    const snap=await fbDb.collection('users').doc(currentUser.uid).collection('tosDrafts').orderBy('savedAt','desc').get();
+    cloudDrafts=snap.docs.map(d=>({ id:d.id, ...d.data() }));
+    renderCloudDraftsList();
+  }catch(err){ console.warn('Could not load cloud drafts:', err); }
+}
+
+function renderCloudDraftsList(){
+  const el=document.getElementById('cloudDraftsList');
+  if(!el) return;
+  if(cloudDrafts.length===0){ el.innerHTML='<div class="qb-empty">No saved TOS drafts yet.</div>'; return; }
+  el.innerHTML=cloudDrafts.map(d=>{
+    const dt=d.savedAt&&d.savedAt.toDate ? d.savedAt.toDate().toLocaleString([], {dateStyle:'medium',timeStyle:'short'}) : '';
+    const compCount=(d.state&&d.state.comps)?d.state.comps.length:0;
+    return `<div class="admin-users-row">
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:600;">${esc(d.title||'Untitled TOS')}</div>
+        <div style="font-size:11px;color:#8a7a5c;">${compCount} competenc${compCount===1?'y':'ies'} · saved ${dt}</div>
+      </div>
+      <button class="btn btn-sm" onclick="loadCloudDraft('${d.id}')">Load</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteCloudDraft('${d.id}')">Delete</button>
+    </div>`;
+  }).join('');
+}
+
+async function saveCurrentDraftToCloud(){
+  if(!fbReady || !currentUser){ alert('Sign in first to save a TOS to the cloud.'); return; }
+  const defaultTitle = suggestDraftTitle();
+  const title=prompt('Save this TOS as:', defaultTitle);
+  if(title===null) return; // cancelled
+  const state=collectState();
+  const payload={
+    title: title.trim()||defaultTitle,
+    subject: state.subject,
+    grade: state.grade,
+    state,
+    savedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  try{
+    const col=fbDb.collection('users').doc(currentUser.uid).collection('tosDrafts');
+    if(currentCloudDraftId){
+      await col.doc(currentCloudDraftId).set(payload);
+    } else {
+      const ref=await col.add(payload);
+      currentCloudDraftId=ref.id;
+    }
+    await loadCloudDraftsList();
+    updateLoadedDraftBanner(payload.title);
+    alert('✓ Saved to the cloud.');
+  }catch(err){ alert('Could not save: '+err.message); }
+}
+
+function loadCloudDraft(id){
+  const d=cloudDrafts.find(x=>x.id===id);
+  if(!d) return;
+  applyState(d.state);
+  currentCloudDraftId=id;
+  updateLoadedDraftBanner(d.title);
+}
+
+async function deleteCloudDraft(id){
+  if(!confirm('Delete this saved TOS draft? This cannot be undone.')) return;
+  try{
+    await fbDb.collection('users').doc(currentUser.uid).collection('tosDrafts').doc(id).delete();
+    if(currentCloudDraftId===id){ currentCloudDraftId=null; updateLoadedDraftBanner(null); }
+    await loadCloudDraftsList();
+  }catch(err){ alert('Could not delete: '+err.message); }
+}
+
+function updateLoadedDraftBanner(title){
+  const banner=document.getElementById('loadedDraftBanner');
+  if(!banner) return;
+  if(title){
+    banner.style.display='block';
+    banner.innerHTML=`📍 Currently editing: <strong>${esc(title)}</strong> (loaded from the cloud)`;
+  } else {
+    banner.style.display='none';
+  }
 }
 
 function saveDraftFile(){
@@ -2660,11 +2772,14 @@ if(fbReady){
       updateAuthUI();
       loadBankFromCloud();
       loadCloudTestsList();
+      loadCloudDraftsList();
       const ctc=document.getElementById('cloudTestsCard'); if(ctc) ctc.style.display='block';
+      const cdc=document.getElementById('cloudDraftsCard'); if(cdc) cdc.style.display='block';
     } else {
       currentUser=null; currentRole=null;
       updateAuthUI();
       const ctc=document.getElementById('cloudTestsCard'); if(ctc) ctc.style.display='none';
+      const cdc=document.getElementById('cloudDraftsCard'); if(cdc) cdc.style.display='none';
     }
   });
 } else {
