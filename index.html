@@ -688,29 +688,20 @@ table.tbl-tos tr.total-row td{background:var(--paper-deep);font-weight:700;}
   <details class="verb-card" id="makerAiSetupCard">
     <summary>✨ AI Assistance Setup (optional) <span style="font-size:12px;font-weight:400;color:#9a8e76;margin-left:8px;">(click to expand)</span></summary>
     <div class="verb-body">
-      <div id="aiConfigAdminBlock" style="display:none;max-width:420px;margin-bottom:16px;padding:14px;background:#faf3e8;border:1px solid var(--gold);border-radius:8px;">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8a7a5c;margin-bottom:10px;">⚙️ Admin only — shared for the whole school</div>
-        <div class="field" style="margin-bottom:12px;">
-          <label>Cloudflare Worker URL</label>
-          <input type="text" id="geminiWorkerUrl" placeholder="https://your-worker-name.yourname.workers.dev">
-        </div>
-        <div class="field" style="margin-bottom:12px;">
-          <label>Gemini Model</label>
-          <input type="text" id="geminiModelName" placeholder="gemini-2.5-flash">
-          <span style="font-size:11px;color:#9a8e76;">If AI generation ever fails with a "quota"/"429" error for everyone at once, check <a href="https://ai.google.dev/gemini-api/docs/deprecations" target="_blank" rel="noopener">Google's deprecation page</a> — Google periodically retires model names.</span>
-        </div>
-        <button class="btn btn-sm btn-primary" onclick="saveAiConfig()">Save (applies to all teachers)</button>
-        <span id="aiConfigSaveStatus" style="font-size:11.5px;color:#8a7a5c;margin-left:8px;"></span>
-      </div>
-      <div id="aiConfigReadonlyBlock" style="max-width:420px;margin-bottom:16px;font-size:12px;color:#8a7a5c;">
-        <div>Worker: <code id="aiConfigWorkerDisplay">—</code></div>
-        <div>Model: <code id="aiConfigModelDisplay">—</code></div>
-        <span style="font-size:11px;">Configured centrally by your admin — ask them if AI generation isn't working.</span>
+      <div class="field" style="max-width:420px;margin-bottom:16px;">
+        <label>Cloudflare Worker URL <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0a080;">(one for the whole school — ask your admin if unsure)</span></label>
+        <input type="text" id="geminiWorkerUrl" placeholder="https://your-worker-name.yourname.workers.dev" oninput="saveWorkerUrl()">
+        <span style="font-size:11px;color:#9a8e76;">This just fixes a browser restriction — it doesn't need to be your own; one Worker can be shared school-wide.</span>
       </div>
       <div class="field" style="max-width:420px;margin-bottom:16px;">
         <label>Your Gemini API Key <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0a080;">(free — get your own at aistudio.google.com/apikey)</span></label>
         <input type="password" id="geminiApiKeyPersonal" placeholder="Paste your own free Gemini API key…" oninput="saveGeminiKeyPersonal()">
         <span style="font-size:11px;color:#9a8e76;">Stored only in this browser. Each teacher uses their own key and their own free usage quota.</span>
+      </div>
+      <div class="field" style="max-width:300px;margin-bottom:16px;">
+        <label>Gemini Model <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0a080;">(Google retires old model names — update here if needed)</span></label>
+        <input type="text" id="geminiModelName" placeholder="gemini-2.5-flash" oninput="saveGeminiModelName()">
+        <span style="font-size:11px;color:#9a8e76;">If AI generation ever starts failing with a "quota" or "429" error even on a fresh key, this is the first thing to check — check <a href="https://ai.google.dev/gemini-api/docs/deprecations" target="_blank" rel="noopener">Google's deprecation page</a> for the current model name.</span>
       </div>
       <div class="field">
         <label>Reference Material (optional) <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0a080;">— paste lesson notes or text so the AI grounds items in it</span></label>
@@ -1815,7 +1806,6 @@ if(fbReady){
       updateAuthUI();
       loadCloudTestsList();
       loadCloudDraftsList();
-      loadAiConfig();
       const ctc=document.getElementById('cloudTestsCard'); if(ctc) ctc.style.display='block';
       const cdc=document.getElementById('cloudDraftsCard'); if(cdc) cdc.style.display='block';
     } else {
@@ -2115,31 +2105,7 @@ function renderTestMaker(){
     html+=makerItemHTML(slot);
   });
   itemsEl.innerHTML=html;
-  itemsEl.querySelectorAll('textarea[id^="maker-stem-"]').forEach(autoResizeTextarea);
   updateMakerProgress();
-}
-
-/* Grows a stem textarea to fit its content, but never shrinks below its default
-   (rows="2") height — so a short question still looks the same as before, while a
-   longer one expands instead of scrolling internally. The default height is measured
-   once from a static probe element (not the real textarea), since real items start
-   collapsed (display:none) and scrollHeight can't be measured reliably while hidden. */
-let _makerStemDefaultHeight=null;
-function getMakerStemDefaultHeight(){
-  if(_makerStemDefaultHeight!==null) return _makerStemDefaultHeight;
-  const probe=document.createElement('textarea');
-  probe.rows=2;
-  probe.style.cssText="position:absolute;visibility:hidden;left:-9999px;top:-9999px;width:300px;box-sizing:border-box;padding:8px 11px;border:1.5px solid #000;border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;";
-  document.body.appendChild(probe);
-  _makerStemDefaultHeight=probe.offsetHeight;
-  document.body.removeChild(probe);
-  return _makerStemDefaultHeight;
-}
-function autoResizeTextarea(el){
-  if(!el) return;
-  const minHeight=getMakerStemDefaultHeight();
-  el.style.height='auto';
-  el.style.height=Math.max(minHeight, el.scrollHeight)+'px';
 }
 
 /* ═══════════════════════════════════════════════════
@@ -2287,7 +2253,7 @@ function makerItemHTML(slot){
     bodyHtml=`${tipHtml}
       <div class="field" style="margin-bottom:10px;">
         <label>Question</label>
-        <textarea id="maker-stem-${slot.num}" rows="2" style="width:100%;padding:8px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;background:var(--paper);resize:vertical;overflow:hidden;" oninput="autoResizeTextarea(this);saveMakerItem(${slot.num})">${esc(it.stem||'')}</textarea>
+        <textarea id="maker-stem-${slot.num}" rows="2" style="width:100%;padding:8px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;background:var(--paper);resize:vertical;" oninput="saveMakerItem(${slot.num})">${esc(it.stem||'')}</textarea>
       </div>
       <div class="field">
         <label>Simple Scoring Rubric</label>
@@ -2312,7 +2278,7 @@ function makerItemHTML(slot){
       </div>
       <div class="field" style="margin-bottom:10px;">
         <label>Question / Item Stem</label>
-        <textarea id="maker-stem-${slot.num}" rows="2" style="width:100%;padding:8px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;background:var(--paper);resize:vertical;overflow:hidden;" oninput="autoResizeTextarea(this);saveMakerItem(${slot.num})">${esc(it.stem||'')}</textarea>
+        <textarea id="maker-stem-${slot.num}" rows="2" style="width:100%;padding:8px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;background:var(--paper);resize:vertical;" oninput="saveMakerItem(${slot.num})">${esc(it.stem||'')}</textarea>
       </div>
       <div id="maker-fields-${slot.num}">${makerTypeFieldsHTML(slot.num,type,it)}</div>`;
   }
@@ -2352,11 +2318,7 @@ function makerTypeFieldsHTML(num,type,it){
   return ['A','B','C','D'].map(L=>`<div class="opt-row"><input type="radio" name="makerCorrect${num}" value="${L}" ${correct===L?'checked':''} onchange="saveMakerItem(${num})"><span style="font-weight:700;width:16px;">${L}</span><input type="text" id="maker-opt${L}-${num}" value="${esc(it['opt'+L]||'')}" oninput="saveMakerItem(${num})"></div>`).join('');
 }
 
-function toggleMakerItem(num){
-  const body=document.getElementById('maker-body-'+num);
-  body.classList.toggle('open');
-  if(body.classList.contains('open')) autoResizeTextarea(document.getElementById('maker-stem-'+num));
-}
+function toggleMakerItem(num){ document.getElementById('maker-body-'+num).classList.toggle('open'); }
 
 function setMakerType(num,type){
   if(!testItems[num]) testItems[num]={};
@@ -2392,7 +2354,6 @@ function refreshMakerItem(num){
   const wasOpen = el.querySelector('.maker-item-body')?.classList.contains('open');
   el.outerHTML=makerItemHTML(slot);
   if(wasOpen){ const body=document.getElementById('maker-body-'+num); if(body) body.classList.add('open'); }
-  autoResizeTextarea(document.getElementById('maker-stem-'+num));
   updateMakerProgress();
 }
 
@@ -2413,71 +2374,33 @@ function normalizeWorkerUrl(url){
   return url.replace(/\/+$/,''); // also strip any trailing slash
 }
 function loadGeminiSettings(){
-  // Worker URL and Model now come from Firestore (settings/aiConfig), loaded via
-  // loadAiConfig() on sign-in — admin-controlled and shared school-wide. Only the
-  // personal API key and reference material remain per-browser here.
+  try{ GEMINI_WORKER_URL = normalizeWorkerUrl(localStorage.getItem('tos_v2_gemini_worker_url') || ''); }catch(e){ GEMINI_WORKER_URL=''; }
   try{ GEMINI_API_KEY_PERSONAL = localStorage.getItem('tos_v2_gemini_key_personal') || ''; }catch(e){ GEMINI_API_KEY_PERSONAL=''; }
+  try{ GEMINI_MODEL = localStorage.getItem('tos_v2_gemini_model') || 'gemini-2.5-flash'; }catch(e){ GEMINI_MODEL='gemini-2.5-flash'; }
   try{ makerRefMaterial = localStorage.getItem('tos_v2_maker_refmaterial') || ''; }catch(e){ makerRefMaterial=''; }
+  const urlEl=document.getElementById('geminiWorkerUrl'); if(urlEl) urlEl.value=GEMINI_WORKER_URL;
   const keyEl=document.getElementById('geminiApiKeyPersonal'); if(keyEl) keyEl.value=GEMINI_API_KEY_PERSONAL;
+  const modelEl=document.getElementById('geminiModelName'); if(modelEl) modelEl.value=GEMINI_MODEL;
   const refEl=document.getElementById('makerRefMaterial'); if(refEl) refEl.value=makerRefMaterial;
+  // If the stored value needed fixing (missing https://, trailing slash), write the
+  // corrected version back to storage and reflect it in the field immediately.
+  if(urlEl && GEMINI_WORKER_URL) urlEl.value=GEMINI_WORKER_URL;
+  try{ if(GEMINI_WORKER_URL) localStorage.setItem('tos_v2_gemini_worker_url', GEMINI_WORKER_URL); }catch(e){}
 }
-
-/* Worker URL + Model: shared, admin-controlled setting stored in Firestore at
-   settings/aiConfig. Every signed-in user can READ it (so AI features work for
-   everyone), but only an Admin can WRITE it — see the security rule in the setup guide. */
-async function loadAiConfig(){
-  if(!fbReady || !currentUser) return;
-  let legacyWorkerUrl='', legacyModel='';
-  try{ legacyWorkerUrl = normalizeWorkerUrl(localStorage.getItem('tos_v2_gemini_worker_url')||''); }catch(e){}
-  try{ legacyModel = localStorage.getItem('tos_v2_gemini_model')||''; }catch(e){}
-  try{
-    const snap=await fbDb.collection('settings').doc('aiConfig').get();
-    const data=snap.exists ? snap.data() : {};
-    // Fall back to this browser's old (pre-shared-setting) value if the shared config
-    // hasn't been saved yet — so an admin who already had this working doesn't need to
-    // retype anything, just open AI Assistance Setup and click Save once to migrate it.
-    GEMINI_WORKER_URL = normalizeWorkerUrl(data.workerUrl||'') || legacyWorkerUrl;
-    GEMINI_MODEL = data.model || legacyModel || 'gemini-2.5-flash';
-  }catch(err){
-    console.warn('Could not load AI config:', err);
-    GEMINI_WORKER_URL = legacyWorkerUrl;
-    GEMINI_MODEL = legacyModel || 'gemini-2.5-flash';
-  }
-  renderAiConfigUI();
+function saveWorkerUrl(){
+  GEMINI_WORKER_URL=normalizeWorkerUrl(document.getElementById('geminiWorkerUrl').value);
+  document.getElementById('geminiWorkerUrl').value=GEMINI_WORKER_URL; // reflect the corrected value back into the field
+  try{ localStorage.setItem('tos_v2_gemini_worker_url', GEMINI_WORKER_URL); }catch(e){}
   updateMakerGenAllVisibility();
 }
-
-function renderAiConfigUI(){
-  const isAdmin = currentRole==='admin';
-  const adminBlock=document.getElementById('aiConfigAdminBlock');
-  const readonlyBlock=document.getElementById('aiConfigReadonlyBlock');
-  if(adminBlock) adminBlock.style.display = isAdmin ? 'block' : 'none';
-  if(readonlyBlock) readonlyBlock.style.display = isAdmin ? 'none' : 'block';
-  const urlEl=document.getElementById('geminiWorkerUrl'); if(urlEl) urlEl.value=GEMINI_WORKER_URL||'';
-  const modelEl=document.getElementById('geminiModelName'); if(modelEl) modelEl.value=GEMINI_MODEL||'';
-  const urlDisp=document.getElementById('aiConfigWorkerDisplay'); if(urlDisp) urlDisp.textContent=GEMINI_WORKER_URL||'(not set)';
-  const modelDisp=document.getElementById('aiConfigModelDisplay'); if(modelDisp) modelDisp.textContent=GEMINI_MODEL||'(not set)';
-}
-
-async function saveAiConfig(){
-  if(!fbReady || !currentUser || currentRole!=='admin'){ alert('Only an Admin can change this shared setting.'); return; }
-  const statusEl=document.getElementById('aiConfigSaveStatus');
-  const workerUrl=normalizeWorkerUrl(document.getElementById('geminiWorkerUrl').value);
-  const model=document.getElementById('geminiModelName').value.trim() || 'gemini-2.5-flash';
-  document.getElementById('geminiWorkerUrl').value=workerUrl;
-  try{
-    await fbDb.collection('settings').doc('aiConfig').set({ workerUrl, model });
-    GEMINI_WORKER_URL=workerUrl; GEMINI_MODEL=model;
-    renderAiConfigUI();
-    updateMakerGenAllVisibility();
-    if(statusEl){ statusEl.textContent='✓ Saved — applies to every teacher.'; setTimeout(()=>statusEl.textContent='',4000); }
-  }catch(err){ if(statusEl) statusEl.textContent='⚠ '+err.message; }
-}
-
 function saveGeminiKeyPersonal(){
   GEMINI_API_KEY_PERSONAL=document.getElementById('geminiApiKeyPersonal').value.trim();
   try{ localStorage.setItem('tos_v2_gemini_key_personal', GEMINI_API_KEY_PERSONAL); }catch(e){}
   updateMakerGenAllVisibility();
+}
+function saveGeminiModelName(){
+  GEMINI_MODEL=document.getElementById('geminiModelName').value.trim() || 'gemini-2.5-flash';
+  try{ localStorage.setItem('tos_v2_gemini_model', GEMINI_MODEL); }catch(e){}
 }
 function saveMakerRefMaterial(){
   makerRefMaterial=document.getElementById('makerRefMaterial').value;
