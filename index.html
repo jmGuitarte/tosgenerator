@@ -2960,8 +2960,12 @@ Return ONLY this JSON (no markdown, no explanation):
 {"stem":"...", "rubric":"..."}`;
   }
   const dt=DOMAIN_TIP[slot.domain];
+  const lesson=(testItems[slot.num]&&testItems[slot.num].lesson)||null;
+  const scopeLine = lesson
+    ? `Lesson: "${lesson}" — this is one specific lesson within the competency "${slot.competency}". Base the item on THIS lesson's content specifically, not the competency as a whole.`
+    : `Competency: "${slot.competency}"`;
   return `You are writing ONE test item for ${subject}, ${grade}.
-Competency: "${slot.competency}"
+${scopeLine}
 Cognitive domain: ${slot.domain} — use verbs like ${dt.verbs}.
 Choose whichever format fits best: multiple-choice (4 options, one correct), true/false, or matching type (pairs).${refBlock()}
 Return ONLY ONE of these JSON shapes (no markdown, no explanation), matching the format you chose:
@@ -3007,10 +3011,12 @@ function buildAllItemsPrompt(slots){
   const list=slots.map(slot=>{
     if(slot.isPisa) return `{"num":${slot.num}, "kind":"pisa", "competency":"PISA-like"}`;
     if(slot.isOE) return `{"num":${slot.num}, "kind":"open", "competency":${JSON.stringify(slot.competency)}}`;
-    return `{"num":${slot.num}, "kind":"domain", "domain":"${slot.domain}", "competency":${JSON.stringify(slot.competency)}, "verbs":"${DOMAIN_TIP[slot.domain].verbs}"}`;
+    const lesson=(testItems[slot.num]&&testItems[slot.num].lesson)||null;
+    const scope = lesson ? JSON.stringify(lesson) : 'null';
+    return `{"num":${slot.num}, "kind":"domain", "domain":"${slot.domain}", "competency":${JSON.stringify(slot.competency)}, "lesson":${scope}, "verbs":"${DOMAIN_TIP[slot.domain].verbs}"}`;
   }).join(',\n');
   return `You are writing a full set of test items for ${subject}, ${grade}.${refBlock()}
-Below is the list of item slots to fill, each with its number, type of slot, and (for domain slots) the cognitive domain and suggested verbs. For "domain" slots, choose whichever format fits best: multiple-choice, true/false, or matching type — vary the formats naturally rather than making everything multiple-choice.
+Below is the list of item slots to fill, each with its number, type of slot, and (for domain slots) the cognitive domain and suggested verbs. Some domain slots also include a "lesson" — when present, base that item on THAT SPECIFIC LESSON's content, not the competency as a whole; when "lesson" is null, base it on the competency generally. For "domain" slots, choose whichever format fits best: multiple-choice, true/false, or matching type — vary the formats naturally rather than making everything multiple-choice.
 
 ITEM SLOTS:
 [${list}]
