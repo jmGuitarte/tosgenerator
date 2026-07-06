@@ -435,7 +435,7 @@ table.tbl-tos tr.total-row td{background:var(--paper-deep);font-weight:700;}
 <details class="verb-card" id="cloudDraftsCard" style="display:none;">
   <summary>☁️ Cloud TOS Drafts <span style="font-size:12px;font-weight:400;color:#9a8e76;margin-left:8px;">(saved to your account, visible from any device)</span></summary>
   <div class="verb-body">
-    <p style="font-size:13px;color:#6b5f4a;margin-bottom:12px;">Save the current TOS-in-progress — school info, competencies, objectives, everything — to your account, and pick it up later from any device.</p>
+    <p style="font-size:13px;color:#6b5f4a;margin-bottom:12px;">One save covers everything for this class: the TOS itself (school info, competencies, objectives), your written test items from Test Maker, and your last Item Analysis results — all bundled together. Loading a saved class automatically regenerates the TOS and restores the test items and analysis, ready to pick up right where you left off.</p>
     <div id="loadedDraftBanner" style="display:none;background:#fdf6e6;border:1px solid var(--gold);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12.5px;color:#5a4420;"></div>
     <div class="btn-row">
       <button class="btn btn-primary btn-sm" onclick="saveCurrentDraftToCloud()">💾 Save Current TOS to Cloud</button>
@@ -713,19 +713,6 @@ table.tbl-tos tr.total-row td{background:var(--paper-deep);font-weight:700;}
   <p class="card-desc">Write your test items directly here, one per TOS item slot. Each item shows its suggested format and a quick writing tip based on Bloom's Taxonomy guidance — with optional Gemini AI assistance to draft items for you, which you can still edit afterward.</p>
   <div id="makerEmpty" class="qb-empty">📋 Generate a TOS first (in TOS Builder), then come back here to write your test.</div>
 
-  <details class="verb-card" id="cloudTestsCard" style="display:none;">
-    <summary>☁️ Cloud Tests <span style="font-size:12px;font-weight:400;color:#9a8e76;margin-left:8px;">(saved to your account, visible from any device)</span></summary>
-    <div class="verb-body">
-      <p style="font-size:13px;color:#6b5f4a;margin-bottom:12px;">Each saved test is tagged to the subject, grade, and term it was written for, so you can safely switch between different tests without losing or mixing up work.</p>
-      <div id="loadedTestBanner" style="display:none;background:#fdf6e6;border:1px solid var(--gold);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12.5px;color:#5a4420;"></div>
-      <div class="btn-row">
-        <button class="btn btn-primary btn-sm" onclick="saveCurrentTestToCloud()">💾 Save Current Test to Cloud</button>
-        <button class="btn btn-sm" onclick="unloadCloudTest()" id="switchToLiveBtn" style="display:none;">↩ Switch back to current TOS</button>
-      </div>
-      <div id="cloudTestsList" style="margin-top:14px;"></div>
-    </div>
-  </details>
-
   <details class="verb-card" id="makerAiSetupCard">
     <summary>✨ AI Assistance Setup (optional) <span style="font-size:12px;font-weight:400;color:#9a8e76;margin-left:8px;">(click to expand)</span></summary>
     <div class="verb-body">
@@ -749,9 +736,22 @@ table.tbl-tos tr.total-row td{background:var(--paper-deep);font-weight:700;}
         <span style="font-size:11px;">Configured centrally by your admin — ask them if AI generation isn't working.</span>
       </div>
       <div class="field" style="max-width:420px;margin-bottom:16px;">
-        <label>Your Gemini API Key <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0a080;">(free — get your own at aistudio.google.com/apikey)</span></label>
+        <label>Your Gemini API Key <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0a080;">(free — get your own at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>)</span></label>
         <input type="password" id="geminiApiKeyPersonal" placeholder="Paste your own free Gemini API key…" oninput="saveGeminiKeyPersonal()">
         <span style="font-size:11px;color:#9a8e76;">Stored only in this browser. Each teacher uses their own key and their own free usage quota.</span>
+        <div style="background:#fdf0e8;border:1px solid #e0a878;border-radius:8px;padding:10px 13px;margin-top:10px;font-size:12px;color:#7a4a2a;">
+          ⚠ <strong>Do not sign in with your @deped.gov.ph account</strong> to generate this key — Google AI Studio access is prohibited/disabled for DepEd accounts by the admin. Use a personal Gmail account instead.
+        </div>
+        <details style="margin-top:10px;">
+          <summary style="cursor:pointer;font-size:12px;color:#8a7a5c;font-weight:600;">How to generate a free key (click to expand)</summary>
+          <ol style="font-size:12px;color:#6b5f4a;margin:8px 0 0 18px;padding:0;line-height:1.7;">
+            <li>Go to <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a></li>
+            <li>Sign in with a <strong>personal Gmail account</strong> (not your DepEd email — see warning above)</li>
+            <li>Click <strong>"Create API key"</strong></li>
+            <li>Choose <strong>"Create API key in new project"</strong> (a fresh project avoids quota issues from an existing one)</li>
+            <li>Copy the key that appears and paste it into the field above</li>
+          </ol>
+        </details>
       </div>
       <div class="field">
         <label>Reference Material (optional) <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0a080;">— paste lesson notes or text so the AI grounds items in it</span></label>
@@ -1598,10 +1598,14 @@ function renderCloudDraftsList(){
   el.innerHTML=cloudDrafts.map(d=>{
     const dt=d.savedAt&&d.savedAt.toDate ? d.savedAt.toDate().toLocaleString([], {dateStyle:'medium',timeStyle:'short'}) : '';
     const compCount = d.compCount!==undefined ? d.compCount : ((d.state&&d.state.comps)?d.state.comps.length:0); // compCount is new; fall back for any older-format saved drafts
+    const includes=[];
+    if(d.hasTestItems) includes.push('test items');
+    if(d.hasAnalysis) includes.push('item analysis');
+    const includesNote = includes.length ? ` · includes ${includes.join(' + ')}` : '';
     return `<div class="admin-users-row">
       <div style="flex:1;">
         <div style="font-size:13px;font-weight:600;">${esc(d.title||'Untitled TOS')}</div>
-        <div style="font-size:11px;color:#8a7a5c;">${compCount} competenc${compCount===1?'y':'ies'} · saved ${dt}</div>
+        <div style="font-size:11px;color:#8a7a5c;">${compCount} competenc${compCount===1?'y':'ies'} · saved ${dt}${includesNote}</div>
       </div>
       <button class="btn btn-sm" onclick="loadCloudDraft('${d.id}')">Load</button>
       <button class="btn btn-sm btn-danger" onclick="deleteCloudDraft('${d.id}')">Delete</button>
@@ -1620,10 +1624,14 @@ async function saveCurrentDraftToCloud(){
     subject: state.subject,
     grade: state.grade,
     compCount: (state.comps||[]).length, // stored separately since stateJSON isn't queryable/readable without parsing
-    // Stored as a JSON string, not a raw object: Firestore rejects nested arrays
-    // (each competency's "doms" field is an array of arrays, from multi-domain
-    // classification), and a string sidesteps that restriction entirely.
+    hasTestItems: Object.keys(testItems||{}).length>0,
+    hasAnalysis: !!analysisData,
+    // Everything below is stored as a JSON string, not a raw object: Firestore rejects
+    // nested arrays (e.g. each competency's "doms" field is an array of arrays), and a
+    // string sidesteps that restriction entirely for any structure, present or future.
     stateJSON: JSON.stringify(state),
+    testItemsJSON: JSON.stringify(testItems||{}),
+    analysisDataJSON: analysisData ? JSON.stringify(analysisData) : null,
     savedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
   try{
@@ -1636,7 +1644,7 @@ async function saveCurrentDraftToCloud(){
     }
     await loadCloudDraftsList();
     updateLoadedDraftBanner(payload.title);
-    alert('✓ Saved to the cloud.');
+    alert('✓ Saved to the cloud — TOS, test items, and item analysis all together.');
   }catch(err){ alert('Could not save: '+err.message); }
 }
 
@@ -1647,6 +1655,18 @@ function loadCloudDraft(id){
   applyState(state);
   currentCloudDraftId=id;
   updateLoadedDraftBanner(d.title);
+
+  // One cloud file, everything together: generating the TOS, restoring the written
+  // test items, and restoring the last item analysis all happen automatically here,
+  // rather than needing three separate manual steps.
+  generateTOS();
+
+  try{ testItems = d.testItemsJSON ? JSON.parse(d.testItemsJSON) : {}; }catch(e){ testItems={}; }
+  makerAutosave();
+  if(document.getElementById('view-maker').classList.contains('active')) renderTestMaker();
+
+  try{ analysisData = d.analysisDataJSON ? JSON.parse(d.analysisDataJSON) : null; }catch(e){ analysisData=null; }
+  if(document.getElementById('view-analysis').classList.contains('active')) renderItemAnalysisView();
 }
 
 async function deleteCloudDraft(id){
@@ -1947,15 +1967,12 @@ if(fbReady){
       currentUser = { uid:user.uid, email:user.email, name:user.displayName||user.email, photo:user.photoURL };
       currentRole = await ensureUserDoc(user);
       updateAuthUI();
-      loadCloudTestsList();
       loadCloudDraftsList();
       loadAiConfig();
-      const ctc=document.getElementById('cloudTestsCard'); if(ctc) ctc.style.display='block';
       const cdc=document.getElementById('cloudDraftsCard'); if(cdc) cdc.style.display='block';
     } else {
       currentUser=null; currentRole=null;
       updateAuthUI();
-      const ctc=document.getElementById('cloudTestsCard'); if(ctc) ctc.style.display='none';
       const cdc=document.getElementById('cloudDraftsCard'); if(cdc) cdc.style.display='none';
     }
   });
@@ -2191,6 +2208,7 @@ const DOMAIN_TIP={
 };
 const PISA_TIP={tip:"Give a short passage, data table, or real-world scenario, then ask 2 or more sub-questions requiring interpretation or application — mirrors PISA's real-world literacy style.",example:'Based on the data shown, what trend do you observe, and what would you predict for next year?'};
 const OE_TIP={tip:"Ask for a written explanation, justification, or demonstration. Pair with a simple 2-3 criteria rubric so scoring stays consistent.",example:'Explain why ___ is important, and give one real-world example.'};
+const NO_MODULE_PHRASING = 'Do NOT reference "the module" in any way — never write phrases like "the module advises", "the module says", "based on the module", "according to the module", or similar. Write the item as a standalone question, with no reference to any source material it may have come from.';
 
 let loadedCloudTestMeta=null; // when a saved cloud test is loaded, its own slot snapshot takes priority over the live TOS
 let currentCloudTestId=null;  // if set, "Save" updates this doc instead of creating a new one
@@ -2259,7 +2277,16 @@ function renderItemAnalysisView(){
     document.getElementById('analysisResults').style.display='none';
     return;
   }
-  emptyEl.style.display='none'; uploadEl.style.display='block';
+  emptyEl.style.display='none';
+  if(analysisData){
+    // Restored from a loaded cloud file — show it directly instead of asking to re-upload.
+    uploadEl.style.display='none';
+    renderAnalysisResults(analysisData);
+    document.getElementById('analysisResults').style.display='block';
+  } else {
+    uploadEl.style.display='block';
+    document.getElementById('analysisResults').style.display='none';
+  }
 }
 
 function clearAnalysisResults(){
@@ -2950,12 +2977,14 @@ function buildItemGenPrompt(slot){
   if(slot.isPisa){
     return `You are writing ONE PISA-like test item for ${subject}, ${grade}.
 Provide a short reading passage, data table, or real-world scenario, then 2-3 sub-questions requiring interpretation or application.${refBlock()}
+${NO_MODULE_PHRASING}
 Return ONLY this JSON (no markdown, no explanation):
 {"passage":"...", "subItems":[{"text":"...","answer":"..."},{"text":"...","answer":"..."}]}`;
   }
   if(slot.isOE){
     return `You are writing ONE open-ended test question for ${subject}, ${grade}, competency: "${slot.competency}".
 Require a written explanation, justification, or demonstration. Include a simple 2-3 criterion scoring rubric.${refBlock()}
+${NO_MODULE_PHRASING}
 Return ONLY this JSON (no markdown, no explanation):
 {"stem":"...", "rubric":"..."}`;
   }
@@ -2968,6 +2997,7 @@ Return ONLY this JSON (no markdown, no explanation):
 ${scopeLine}
 Cognitive domain: ${slot.domain} — use verbs like ${dt.verbs}.
 Choose whichever format fits best: multiple-choice (4 options, one correct), true/false, or matching type (pairs).${refBlock()}
+${NO_MODULE_PHRASING}
 Return ONLY ONE of these JSON shapes (no markdown, no explanation), matching the format you chose:
 {"type":"mcq","stem":"...","optA":"...","optB":"...","optC":"...","optD":"...","correct":"A"}
 {"type":"tf","stem":"...","tf":"True"}
@@ -3017,6 +3047,7 @@ function buildAllItemsPrompt(slots){
   }).join(',\n');
   return `You are writing a full set of test items for ${subject}, ${grade}.${refBlock()}
 Below is the list of item slots to fill, each with its number, type of slot, and (for domain slots) the cognitive domain and suggested verbs. Some domain slots also include a "lesson" — when present, base that item on THAT SPECIFIC LESSON's content, not the competency as a whole; when "lesson" is null, base it on the competency generally. For "domain" slots, choose whichever format fits best: multiple-choice, true/false, or matching type — vary the formats naturally rather than making everything multiple-choice.
+${NO_MODULE_PHRASING}
 
 ITEM SLOTS:
 [${list}]
