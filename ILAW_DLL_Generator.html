@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ILAW Lesson Plan Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+// Fallback to a second CDN if the primary one failed to load (e.g. blocked by a
+// restrictive network) — checked once the page finishes loading.
+window.addEventListener('DOMContentLoaded', () => {
+  if (typeof JSZip === 'undefined') {
+    const fallback = document.createElement('script');
+    fallback.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+    document.head.appendChild(fallback);
+  }
+});
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<style>
+:root{
+  --maroon-deep:#080726; --maroon-mid:#14123f; --gold:#b8863f; --paper:#eef3f8; --paper-deep:#e2eaf3;
+  --line:rgba(30,55,90,.14); --ink:#1e2a3a; --warn:#b0472e; --good:#2e7d4f; --rose:#080726; --muted:#5a6b80; --bluewhite:#e8f0fb; --shadow:0 1px 2px rgba(20,40,70,.06),0 6px 20px -10px rgba(20,40,70,.12);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+#backToTop{
+  position:fixed;right:22px;bottom:22px;z-index:200;
+  width:46px;height:46px;border-radius:50%;border:1.5px solid var(--gold);
+  background:var(--maroon-deep);color:var(--gold);
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;line-height:1;cursor:pointer;
+  box-shadow:0 8px 22px -8px rgba(8,7,38,.55);
+  opacity:0;visibility:hidden;transform:translateY(10px);
+  transition:opacity .25s ease,transform .25s ease,visibility .25s;
+}
+#backToTop.show{opacity:1;visibility:visible;transform:translateY(0);}
+#backToTop:hover{background:var(--gold);color:var(--maroon-deep);}
+#backToTop:focus-visible{outline:2px solid var(--gold);outline-offset:3px;}
+@media(max-width:520px){#backToTop{right:14px;bottom:14px;width:42px;height:42px;font-size:18px;}}
+body{background:linear-gradient(160deg,#f3f7fb 0%,#e9f0f7 40%,#e4edf6 75%,#eaf0f9 100%);color:var(--ink);font-family:'Inter',sans-serif;font-size:14px;line-height:1.5;position:relative;}
+body::before,body::after{content:"";position:fixed;border-radius:50%;filter:blur(80px);z-index:0;pointer-events:none;}
+body::before{width:440px;height:440px;background:rgba(120,160,210,.25);top:-140px;left:-120px;}
+body::after{width:500px;height:500px;background:rgba(90,130,190,.18);bottom:-180px;right:-140px;}
+.wrap{position:relative;z-index:1;}
+.wrap{max-width:1200px;margin:0 auto;padding:0 22px 60px;}
+header{background:linear-gradient(135deg,var(--maroon-deep),var(--maroon-mid));color:#fff;padding:26px 0;margin-bottom:24px;}
+header .wrap{padding-top:0;padding-bottom:0;}
+header h1{font-family:'Space Grotesk',sans-serif;font-size:26px;}
+header p{opacity:.85;font-size:13px;margin-top:4px;}
+.card{background:rgba(255,255,255,.55);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.7);border-radius:14px;padding:22px 24px;margin-top:20px;box-shadow:var(--shadow);}
+.card-title{font-family:'Space Grotesk',sans-serif;font-size:17px;color:var(--rose);font-weight:700;margin-bottom:3px;}
+.card-desc{font-size:13px;color:var(--muted);margin-bottom:16px;}
+details.card-collapse{background:rgba(255,255,255,.55);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.7);border-radius:14px;margin-top:20px;box-shadow:var(--shadow);}
+details.card-collapse>summary{padding:16px 22px;cursor:pointer;list-style:none;font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:700;color:var(--rose);}
+details.card-collapse>summary::-webkit-details-marker{display:none;}
+.collapse-body{padding:0 24px 22px;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:5px;}
+.field .hint{font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:11px;}
+.field input[type=text],.field input[type=number],.field input[type=password],.field input[type=date],.field select,.field textarea{
+  width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:13.5px;font-family:'Inter',sans-serif;background:var(--paper);color:var(--ink);
+}
+.field textarea{resize:vertical;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+@media(max-width:720px){.grid2,.grid3{grid-template-columns:1fr;}}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:10px 18px;border-radius:9px;border:1.5px solid var(--maroon-deep);background:var(--maroon-deep);color:var(--bluewhite);font-family:'Inter',sans-serif;font-weight:600;font-size:13.5px;cursor:pointer;transition:.14s;}
+.btn:hover{background:var(--maroon-mid);}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.btn-outline{background:transparent;color:var(--rose);}
+.btn-gold{background:var(--gold);border-color:var(--gold);color:#e0cc9a;}
+.btn-sm{padding:7px 13px;font-size:12.5px;}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px;}
+.format-toggle{display:flex;gap:10px;}
+.format-chip{flex:1;padding:12px 14px;border:1.5px solid var(--line);border-radius:9px;cursor:pointer;text-align:center;font-size:13px;font-weight:600;color:var(--muted);}
+.format-chip.active{background:var(--maroon-deep);color:var(--bluewhite);border-color:var(--rose);}
+.focus-entry{border:1px solid rgba(255,255,255,.7);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:rgba(255,255,255,.55);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+.focus-entry-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.focus-entry-head span{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+.focus-day-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:12.5px;color:var(--muted);}
+.focus-day-row label{display:flex;align-items:center;gap:5px;font-weight:400;text-transform:none;letter-spacing:0;margin:0;}
+.focus-day-hint{font-size:11px;color:var(--muted);margin-top:4px;}
+.day-editor{border:1px solid rgba(255,255,255,.7);border-radius:10px;margin-bottom:12px;overflow:hidden;background:rgba(255,255,255,.4);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+.day-editor-head{background:rgba(226,234,243,.8);padding:10px 14px;font-family:'Space Grotesk',sans-serif;font-weight:700;color:var(--rose);display:flex;justify-content:space-between;align-items:center;}
+.day-editor-body{padding:14px;}
+.day-row{margin-bottom:10px;}
+.day-row label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:4px;}
+.day-row textarea{width:100%;padding:8px 10px;border:1.5px solid var(--line);border-radius:7px;font-size:13px;font-family:'Inter',sans-serif;background:var(--paper);resize:vertical;}
+/* Auto-resizing textarea, pure CSS: the invisible ::after mirrors the textarea's
+   content in the same grid cell, so the grid row naturally grows to fit it — no JS
+   scrollHeight measurement needed, and it sizes correctly on the very first render
+   (e.g. freshly AI-generated content), not just after the user types something. */
+.grow-wrap{display:grid;}
+.grow-wrap::after{content:attr(data-replicated-value) " ";white-space:pre-wrap;visibility:hidden;}
+.grow-wrap>textarea,.grow-wrap::after{grid-area:1/1/2/2;overflow:hidden;line-height:1.4;}
+.grow-wrap.day-row-wrap{min-height:38px;}
+.grow-wrap.day-row-wrap>textarea,.grow-wrap.day-row-wrap::after{width:100%;padding:8px 10px;border:1.5px solid var(--line);border-radius:7px;font-size:13px;font-family:'Inter',sans-serif;background:var(--paper);resize:none;}
+.grow-wrap.weekly-wrap{min-height:70px;}
+.grow-wrap.weekly-wrap>textarea,.grow-wrap.weekly-wrap::after{width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:13.5px;font-family:'Inter',sans-serif;background:var(--paper);resize:none;}
+.status-msg{font-size:12.5px;color:var(--muted);margin-top:8px;}
+.status-msg.error{color:var(--warn);}
+.status-msg.ok{color:var(--good);}
+.declaration-box{background:var(--paper-deep);border:1px solid var(--gold);border-radius:9px;padding:14px 16px;font-size:12.5px;color:#d4c090;margin-top:16px;}
+.warn-box{background:#fdf0e8;border:1px solid #e0a878;border-radius:8px;padding:10px 13px;font-size:12px;color:#d4a074;}
+a{color:var(--rose);}
+.spinner{display:inline-block;width:13px;height:13px;border:2px solid #ffffff55;border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap" style="display:flex;justify-content:space-between;align-items:center;">
+    <div>
+      <h1>📘 ILAW Lesson Plan Generator</h1>
+      <p>AI-assisted Daily Lesson Log drafting, aligned to the ILAW instructional framework — adaptable to your own school and learner community</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-shrink:0;">
+      <a href="./index.html" title="Back to Teacher Tools" style="display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);color:#fff;width:42px;height:42px;border-radius:50%;font-size:18px;cursor:pointer;text-decoration:none;">🏠</a>
+      <button onclick="openSettings()" title="Settings" style="background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);color:#fff;width:42px;height:42px;border-radius:50%;font-size:19px;cursor:pointer;">⚙️</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="card" id="authCard">
+    <div id="signedOutView">
+      <p class="card-title">☁️ Sign In to Save to the Cloud</p>
+      <p class="card-desc">Optional — the app works fully without signing in, but drafts (including generated content) won't be saved anywhere except this browser's memory until you export. Sign in to save drafts to your account and pick them up later from any device.</p>
+      <div class="btn-row">
+        <button class="btn" onclick="signInWithGoogle()">Sign in with Google</button>
+        <span id="loginSpinner" style="display:none;" class="spinner"></span>
+      </div>
+      <div id="authMsg" style="display:none;margin-top:8px;font-size:12.5px;color:var(--warn);"></div>
+    </div>
+    <div id="signedInView" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:13px;color:var(--muted);">Signed in as <strong id="userEmailDisplay"></strong></span>
+        <button class="btn btn-sm btn-outline" onclick="signOutUser()">Sign Out</button>
+      </div>
+    </div>
+  </section>
+
+  <details class="card-collapse" id="cloudDraftsCard" style="display:none;">
+    <summary>☁️ Cloud Drafts <span style="font-weight:400;font-size:12px;color:var(--muted);">— saved to your account, visible from any device</span></summary>
+    <div class="collapse-body">
+      <p class="card-desc">One save covers everything: school info, weekly focus, standards, contextualization, and any generated DLL content or locked-in objectives — all bundled together. Loading a saved draft restores the whole form exactly as you left it.</p>
+      <div id="loadedDraftBanner" style="display:none;background:#fdf6e6;border:1px solid var(--gold);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12.5px;color:#d4c090;"></div>
+      <div class="btn-row">
+        <button class="btn btn-sm btn-gold" onclick="saveCurrentDraftToCloud()">💾 Save Current Draft to Cloud</button>
+      </div>
+      <div id="cloudDraftsList" style="margin-top:14px;"></div>
+    </div>
+  </details>
+
+  <details class="card-collapse" id="mergeDraftsCard" style="display:none;">
+    <summary>🔀 Merge Two Weekly Drafts <span style="font-weight:400;font-size:12px;color:var(--muted);">— combine specific days from two saved drafts into one export</span></summary>
+    <div class="collapse-body">
+      <p class="card-desc">Pick two saved cloud drafts, then choose which one each day should come from. Days must match between them (same 4-day or 5-day format) — the result exports using the current DLL Format/template selected above.</p>
+      <div class="grid2">
+        <div class="field"><label>Draft A</label><select id="mergeDraftA" onchange="renderMergeDayPicker()"><option value="">— choose a saved draft —</option></select></div>
+        <div class="field"><label>Draft B</label><select id="mergeDraftB" onchange="renderMergeDayPicker()"><option value="">— choose a saved draft —</option></select></div>
+      </div>
+      <div id="mergeDayPicker" style="margin-top:10px;"></div>
+      <div class="btn-row" style="margin-top:12px;">
+        <button class="btn btn-gold" onclick="exportMergedDLL()">⬇ Merge & Export .docx</button>
+        <span id="mergeStatus" class="status-msg"></span>
+      </div>
+    </div>
+  </details>
+
+  <details class="card-collapse">
+    <summary style="display:none;">✨ AI Setup (Gemini)</summary>
+    <div class="collapse-body" style="display:none;">
+      <input type="text" id="workerUrl">
+      <input type="password" id="apiKey">
+    </div>
+  </details>
+
+  <div id="settingsModal" style="display:none;position:fixed;inset:0;background:rgba(40,26,10,.45);z-index:100;align-items:center;justify-content:center;">
+    <div style="background:rgba(255,255,255,.92);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,.8);border-radius:14px;max-width:560px;width:92%;max-height:85vh;overflow-y:auto;padding:26px 28px;box-shadow:0 20px 60px -20px rgba(20,40,70,.35);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <p class="card-title" style="margin:0;">⚙️ Settings</p>
+        <button class="btn btn-sm btn-outline" onclick="closeSettings()">Close</button>
+      </div>
+      <p class="card-desc">One-time setup — saved in this browser, so you won't need to re-enter these each visit.</p>
+
+      <p style="font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:16px 0 8px;">AI (Gemini)</p>
+      <div class="field">
+        <label>Cloudflare Worker URL</label>
+        <input type="text" id="settingsWorkerUrl" placeholder="https://your-worker-name.yourname.workers.dev">
+      </div>
+      <div class="field">
+        <label>Your Gemini API Key <span class="hint">(free at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>)</span></label>
+        <input type="password" id="settingsApiKey" placeholder="Paste your free Gemini API key…">
+      </div>
+      <div class="warn-box">⚠ Do not sign in with your @deped.gov.ph account to generate this key — Google AI Studio access is prohibited/disabled for DepEd accounts by the admin. Use a personal Gmail account instead.</div>
+
+      <p style="font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:20px 0 8px;">Cloud Save (Firebase)</p>
+      <p class="card-desc" style="margin-top:0;">If you already use the TOS Generator app's cloud save, paste the exact same values here — same Firebase project, same account, one setup covers both apps (as long as both are hosted on the same site/domain, since that's what makes browser storage shareable between them).</p>
+      <div class="grid2">
+        <div class="field"><label>API Key</label><input type="text" id="settingsFbApiKey" placeholder="AIza..."></div>
+        <div class="field"><label>Auth Domain</label><input type="text" id="settingsFbAuthDomain" placeholder="your-project.firebaseapp.com"></div>
+        <div class="field"><label>Project ID</label><input type="text" id="settingsFbProjectId" placeholder="your-project-id"></div>
+        <div class="field"><label>Storage Bucket</label><input type="text" id="settingsFbStorageBucket" placeholder="your-project.appspot.com"></div>
+        <div class="field"><label>Messaging Sender ID</label><input type="text" id="settingsFbSenderId" placeholder="123456789"></div>
+        <div class="field"><label>App ID</label><input type="text" id="settingsFbAppId" placeholder="1:123456789:web:..."></div>
+      </div>
+
+      <div class="btn-row" style="margin-top:16px;">
+        <button class="btn" onclick="saveSettings()">Save Settings</button>
+        <span id="settingsSaveStatus" class="status-msg"></span>
+      </div>
+      <p class="hint" style="display:block;margin-top:10px;">Firebase changes take effect after the page reloads — the app will reload automatically after saving if these values changed.</p>
+    </div>
+  </div>
+
+  <section class="card">
+    <p class="card-title">① Lesson Details</p>
+    <div class="grid2">
+      <div class="field"><label>School</label><input type="text" id="school" placeholder="e.g. Sicayab National High School"></div>
+      <div class="field"><label>Division</label><input type="text" id="division" placeholder="e.g. Schools Division of Dipolog City"></div>
+    </div>
+    <div class="grid3">
+      <div class="field"><label>Subject</label><input type="text" id="subject" placeholder="e.g. Computer Systems Servicing NC II"></div>
+      <div class="field"><label>Grade & Section</label><input type="text" id="gradeSection" placeholder="e.g. Grade 12 – TechPro A"></div>
+      <div class="field">
+        <label>Term</label>
+        <select id="term">
+          <option value="1">Term 1</option>
+          <option value="2">Term 2</option>
+          <option value="3">Term 3</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Week Start Date</label><input type="date" id="startDate"></div>
+      <div class="field"><label>Week End Date</label><input type="date" id="endDate"></div>
+    </div>
+    <div class="field">
+      <label>DLL Format</label>
+      <div class="format-toggle">
+        <div class="format-chip active" id="fmt-five" onclick="setFormat('five')">5-Day (Monday–Friday)</div>
+        <div class="format-chip" id="fmt-four" onclick="setFormat('four')">4-Day (Monday–Thursday)</div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label>Session Duration <span class="hint">— per session; shapes how much depth/pacing fits in the Flow</span></label>
+        <select id="sessionDuration">
+          <option value="40 minutes">40 minutes</option>
+          <option value="1 hour" selected>1 hour</option>
+          <option value="1.5 hours">1.5 hours</option>
+          <option value="2 hours">2 hours</option>
+          <option value="2.5 hours">2.5 hours</option>
+          <option value="3 hours">3 hours</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Time Breakdown <span class="hint">(optional — how to split the session's time)</span></label>
+        <input type="text" id="timeBreakdown" placeholder="e.g. 1 hour discussion, 1 hour hands-on">
+      </div>
+    </div>
+    <div class="field" style="display:flex;align-items:center;gap:10px;">
+      <input type="checkbox" id="hasMorningAfternoon" style="width:16px;height:16px;flex-shrink:0;">
+      <label style="margin:0;">This schedule has separate Morning and Afternoon sessions each day <span class="hint">(each with its own Flow and Learning Objectives, using the same Session Duration above for each)</span></label>
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label>Content Standard <span class="hint">(mandatory — copy verbatim from the curriculum guide)</span></label>
+        <div class="grow-wrap weekly-wrap" data-replicated-value=""><textarea id="contentStandard" placeholder="e.g. The learners demonstrate understanding of..." oninput="this.parentNode.dataset.replicatedValue=this.value"></textarea></div>
+      </div>
+      <div class="field">
+        <label>Performance Standard <span class="hint">(mandatory — copy verbatim from the curriculum guide)</span></label>
+        <div class="grow-wrap weekly-wrap" data-replicated-value=""><textarea id="performanceStandard" placeholder="e.g. The learners independently..." oninput="this.parentNode.dataset.replicatedValue=this.value"></textarea></div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Weekly Focus / Learning Competency <span class="hint">— one entry covers the whole week; add more if you have distinct competencies for different days</span></label>
+      <div id="weeklyFocusList"></div>
+      <button class="btn btn-sm btn-outline" type="button" onclick="addFocusEntry()" style="margin-top:6px;">+ Add Another Focus</button>
+    </div>
+    <div class="field" style="margin-top:26px;">
+      <label>Reference Material <span class="hint">(optional — paste a lesson exemplar, module excerpt, or article text; fill this in before generating objectives below so they're grounded in it)</span></label>
+      <div class="grow-wrap weekly-wrap" data-replicated-value=""><textarea id="referenceMaterial" placeholder="Paste the actual text here — not just a link, since the AI can't browse a URL on its own. Copy the relevant content from your exemplar, module, or article into this box." oninput="this.parentNode.dataset.replicatedValue=this.value"></textarea></div>
+      <span class="hint" style="display:block;margin-top:5px;">A link by itself won't work — Gemini has no way to visit it. Copy the actual text you want it grounded in, from the exemplar, module, or page.</span>
+    </div>
+    <div class="field" style="margin-top:26px;">
+      <label>Learning Objectives <span class="hint">(optional — lock these in yourself before generating the rest of the DLL, instead of leaving them to the AI)</span></label>
+      <div class="btn-row">
+        <button class="btn btn-sm btn-gold" type="button" onclick="generateObjectives()" id="genObjBtn">✨ Generate Learning Objectives</button>
+        <span id="genObjStatus" class="status-msg"></span>
+      </div>
+      <div id="objectivesEditor" style="margin-top:10px;"></div>
+      <span class="hint" style="display:block;margin-top:6px;">Drafted using the STAR method (Situation–Task–Action–Result) as a scaffold, then written out as one proper measurable objective per session — same verb/content/measurement standard as before. If Reference Material above is filled in, objectives are grounded in it. Edit freely below; whatever's here when you generate the full DLL is used exactly as-is, not regenerated.</span>
+    </div>
+    <div class="field" style="margin-top:26px;">
+      <label>Contextualization Details <span class="hint">(optional — describe your own learners so examples fit them, not a generic default)</span></label>
+      <div class="grow-wrap weekly-wrap" data-replicated-value=""><textarea id="contextDetails" placeholder="e.g. learners' cultural/religious background, local community context, available local materials, common local occupations/livelihoods, language/dialect notes, or anything else that should shape how examples are localized." oninput="this.parentNode.dataset.replicatedValue=this.value"></textarea></div>
+      <span class="hint" style="display:block;margin-top:5px;">Left blank, examples default to a general, inclusive public-school context — not any specific city or community. The more specific this is, the better: real-life connection *and* local materials/language together outperform either alone (Dohinog et al., 2025, <em>Psych Educ</em> 44(2), 203–214).</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <p class="card-title">② Signatories</p>
+    <div class="grid3">
+      <div class="field"><label>Prepared by (Teacher)</label><input type="text" id="preparedName" placeholder="Your name"></div>
+      <div class="field"><label>Position</label><input type="text" id="preparedPos" placeholder="e.g. Teacher III"></div>
+      <div class="field"></div>
+      <div class="field"><label>Checked / Reviewed by</label><input type="text" id="checkedName" placeholder="Name"></div>
+      <div class="field"><label>Position</label><input type="text" id="checkedPos" placeholder="e.g. TVL Coordinator"></div>
+      <div class="field"></div>
+      <div class="field"><label>Approved by</label><input type="text" id="approvedName" placeholder="Name"></div>
+      <div class="field"><label>Position</label><input type="text" id="approvedPos" placeholder="e.g. School Principal"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <p class="card-title">③ Generate Content</p>
+    <p class="card-desc">Follows the ILAW framework: for each day, the AI selects whichever instructional model (4A's / 4I's / 4C's / STAR, or another fitting one) best suits that day's specific content — not a fixed rotation. Six Learning Design Principles are woven in without being named, and content is contextualized using whatever you described above (or a general, inclusive default if left blank).</p>
+    <div class="btn-row">
+      <button class="btn" id="genBtn" onclick="generateDLL()">✨ Generate DLL Content with AI</button>
+      <span class="status-msg" id="genStatus"></span>
+    </div>
+  </section>
+
+  <section class="card" id="previewCard" style="display:none;">
+    <p class="card-title">④ Review & Edit</p>
+    <p class="card-desc">Everything below is editable — review before exporting. Nothing is final until you export.</p>
+    <div id="dayEditors"></div>
+  </section>
+
+  <section class="card" id="exportCard" style="display:none;">
+    <p class="card-title">⑤ Export</p>
+    <div class="declaration-box">
+      <strong>Declaration of AI Use</strong> (DepEd Order No. 003, s. 2026, Annex A) will be included automatically in the exported document, noting that Gemini AI assisted in drafting instructional content, reviewed and finalized by the teacher of record.
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-gold" onclick="exportDLL()">⬇ Export to .docx</button>
+      <span class="status-msg" id="exportStatus"></span>
+    </div>
+  </section>
+
+  <section class="card" id="lpExportCard" style="display:none;">
+    <p class="card-title">Or Export as a Day-per-Page Lesson Plan</p>
+    <p class="card-desc">Uses the same generated content, but formatted into the single-day ILAW Lesson Plan template instead — one full page per day, combined into one document with a page break between each.</p>
+    <div id="lpDayChecklist" style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px;font-size:13px;"></div>
+    <div class="btn-row">
+      <button class="btn btn-gold" onclick="exportDayPerPage()">⬇ Export Day-per-Page .docx</button>
+      <span class="status-msg" id="lpExportStatus"></span>
+    </div>
+  </section>
+
+</div>
+
+<script>
+const ROW_LABELS = [
+  'Learning Competency','Learning Objectives','Learner Context','Pre-Lesson','Flow',
+  'Learning Resources','Opportunities for Integration','Formative Assessment',
+  'Extended Learning Opportunities','Reflections'
+];
+const DAYS_FIVE = ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY'];
+const DAYS_FOUR = ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY'];
+const AVAILABLE_FRAMEWORKS = "4A's (Activity–Analysis–Abstraction–Application), 4I's (Introduction–Interaction–Integration–Independent Practice), 4C's (Connect–Construct–Confirm–Commit), STAR (Situation–Task–Action–Result), or another recognized instructional framework if it fits the day's specific content better";
+
+let currentFormat = 'five';
+let dllData = {}; // { DAY: { 'Learning Competency': '...', ... } }
+
+function setFormat(fmt){
+  currentFormat = fmt;
+  document.getElementById('fmt-five').classList.toggle('active', fmt==='five');
+  document.getElementById('fmt-four').classList.toggle('active', fmt==='four');
+  renderFocusEntries(); // day checkboxes depend on the day count, which just changed
+}
+
+/* Weekly Focus is a LIST, not a single field: most weeks only need one entry (applies
+   across all days, exactly like before), but a week with two distinct competencies can
+   add a second entry and optionally pin each one to specific days. */
+let focusEntries = [{ text: '', days: [] }]; // days: [] means "applies to all days"
+let preGeneratedObjectives = {}; // {DAY: "objectives text"} — set via generateObjectives(), locks in Learning Objectives before the main DLL generation
+
+function currentFocusDays(){ return currentFormat==='five' ? DAYS_FIVE : DAYS_FOUR; }
+
+function renderLpDayChecklist(){
+  const el = document.getElementById('lpDayChecklist');
+  if(!el) return;
+  const days = currentFormat==='five' ? DAYS_FIVE : DAYS_FOUR;
+  el.innerHTML = days.map(d => `<label style="display:flex;align-items:center;gap:5px;font-weight:400;"><input type="checkbox" class="lp-day-check" value="${d}" checked> ${d.charAt(0)+d.slice(1).toLowerCase()}</label>`).join('');
+}
+
+function renderFocusEntries(){
+  const container = document.getElementById('weeklyFocusList');
+  if(!container) return;
+  const days = currentFocusDays();
+  container.innerHTML = focusEntries.map((entry, i) => `
+    <div class="focus-entry">
+      <div class="focus-entry-head">
+        <span>${focusEntries.length>1 ? `Focus ${i+1}` : 'Weekly Focus'}</span>
+        ${focusEntries.length>1 ? `<button class="btn btn-sm" type="button" onclick="removeFocusEntry(${i})">Remove</button>` : ''}
+      </div>
+      <div class="grow-wrap weekly-wrap" data-replicated-value="${esc(entry.text)}"><textarea placeholder="e.g. Create a bootable device: prepare application/system software, create ISO image, and create a bootable device using third-party tools and DOS." oninput="this.parentNode.dataset.replicatedValue=this.value;updateFocusText(${i},this.value)">${esc(entry.text)}</textarea></div>
+      ${focusEntries.length>1 ? `
+      <div class="focus-day-row">
+        ${days.map(d => `<label><input type="checkbox" ${entry.days.includes(d)?'checked':''} onchange="toggleFocusDay(${i},'${d}',this.checked)"> ${d.charAt(0)+d.slice(1).toLowerCase()}</label>`).join('')}
+      </div>
+      <div class="focus-day-hint">Leave all unchecked to let this apply across the whole week instead of specific days.</div>
+      ` : ''}
+    </div>
+  `).join('');
+}
+
+function updateFocusText(i, value){ if(focusEntries[i]) focusEntries[i].text = value; }
+function toggleFocusDay(i, day, checked){
+  if(!focusEntries[i]) return;
+  const set = new Set(focusEntries[i].days);
+  if(checked) set.add(day); else set.delete(day);
+  focusEntries[i].days = [...set];
+}
+function addFocusEntry(){
+  focusEntries.push({ text: '', days: [] });
+  renderFocusEntries();
+}
+function removeFocusEntry(i){
+  if(focusEntries.length<=1) return;
+  focusEntries.splice(i,1);
+  renderFocusEntries();
+}
+document.addEventListener('DOMContentLoaded', () => {
+  renderFocusEntries();
+  const savedWorkerUrl = localStorage.getItem(SHARED_WORKER_URL_KEY);
+  const savedApiKey = localStorage.getItem(SHARED_API_KEY_KEY);
+  if(savedWorkerUrl) document.getElementById('workerUrl').value = savedWorkerUrl;
+  if(savedApiKey) document.getElementById('apiKey').value = savedApiKey;
+});
+
+function esc(s){ return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ═══════════════════════════════════════════════════
+   FIREBASE — sign-in + cloud save/load. Fill in your own project's config below
+   (the same project used for the TOS Generator app works fine — just add the
+   security rule shown in the accompanying setup notes for a new "ilawDrafts"
+   collection). Uses signInWithPopup, not signInWithRedirect: Firebase's own docs
+   confirm redirect requires the app to be hosted on Firebase Hosting itself —
+   otherwise the cross-origin iframe it relies on gets silently blocked by
+   third-party storage partitioning on GitHub Pages or any other host.
+
+   Config is read from localStorage (set via the ⚙️ Settings panel), not hardcoded —
+   this is what makes "one-time setup" possible without editing this file directly.
+   The key names are deliberately generic (not "ilaw_"-prefixed): if another app is
+   hosted on the same site/domain and reads/writes these exact same keys, browser
+   storage is shared automatically between them, and setup only has to happen once
+   across both — no code changes needed on either side beyond agreeing on these names.
+   ═══════════════════════════════════════════════════ */
+const SHARED_FB_CONFIG_KEY = 'shared_firebase_config';
+const SHARED_WORKER_URL_KEY = 'shared_gemini_worker_url';
+const SHARED_API_KEY_KEY = 'shared_gemini_api_key';
+
+function loadStoredFirebaseConfig(){
+  try{
+    const raw = localStorage.getItem(SHARED_FB_CONFIG_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+const firebaseConfig = loadStoredFirebaseConfig() || {
+  apiKey: "AIzaSyBxZRg7NBXfeAyv6-lvqK5n25YYCcn93ys", authDomain: "snhs-tos-generator.firebaseapp.com", projectId: "snhs-tos-generator",
+  storageBucket: "snhs-tos-generator.firebasestorage.app", messagingSenderId: "118810613515", appId: "1:118810613515:web:6569fda91264fde00ff40e"
+};
+const ALLOWED_EMAIL_DOMAIN = ''; // optional — set to e.g. 'deped.gov.ph' to restrict sign-in, or leave blank to allow any Google account
+
+let fbReady = false, fbAuth = null, fbDb = null, currentUser = null, currentCloudDraftId = null, cloudDrafts = [];
+try{
+  if(firebaseConfig.apiKey !== "YOUR_API_KEY" && typeof firebase !== 'undefined'){
+    firebase.initializeApp(firebaseConfig);
+    fbAuth = firebase.auth();
+    fbDb = firebase.firestore();
+    fbReady = true;
+  }
+}catch(e){ console.warn('Firebase not configured:', e); }
+
+function openSettings(){
+  document.getElementById('settingsWorkerUrl').value = localStorage.getItem(SHARED_WORKER_URL_KEY) || '';
+  document.getElementById('settingsApiKey').value = localStorage.getItem(SHARED_API_KEY_KEY) || '';
+  const fb = loadStoredFirebaseConfig() || {};
+  document.getElementById('settingsFbApiKey').value = fb.apiKey && fb.apiKey!=='YOUR_API_KEY' ? fb.apiKey : '';
+  document.getElementById('settingsFbAuthDomain').value = fb.authDomain && fb.authDomain!=='YOUR_PROJECT.firebaseapp.com' ? fb.authDomain : '';
+  document.getElementById('settingsFbProjectId').value = fb.projectId && fb.projectId!=='YOUR_PROJECT_ID' ? fb.projectId : '';
+  document.getElementById('settingsFbStorageBucket').value = fb.storageBucket && fb.storageBucket!=='YOUR_PROJECT.appspot.com' ? fb.storageBucket : '';
+  document.getElementById('settingsFbSenderId').value = fb.messagingSenderId && fb.messagingSenderId!=='YOUR_SENDER_ID' ? fb.messagingSenderId : '';
+  document.getElementById('settingsFbAppId').value = fb.appId && fb.appId!=='YOUR_APP_ID' ? fb.appId : '';
+  document.getElementById('settingsModal').style.display = 'flex';
+}
+function closeSettings(){ document.getElementById('settingsModal').style.display = 'none'; }
+
+function saveSettings(){
+  const statusEl = document.getElementById('settingsSaveStatus');
+  const workerUrl = document.getElementById('settingsWorkerUrl').value.trim();
+  const apiKey = document.getElementById('settingsApiKey').value.trim();
+  try{ localStorage.setItem(SHARED_WORKER_URL_KEY, workerUrl); }catch(e){}
+  try{ localStorage.setItem(SHARED_API_KEY_KEY, apiKey); }catch(e){}
+  // Sync into the legacy hidden fields the rest of the app (callGemini) already reads —
+  // so nothing else needed to change to pick these values up.
+  document.getElementById('workerUrl').value = workerUrl;
+  document.getElementById('apiKey').value = apiKey;
+
+  const newFbConfig = {
+    apiKey: document.getElementById('settingsFbApiKey').value.trim() || 'YOUR_API_KEY',
+    authDomain: document.getElementById('settingsFbAuthDomain').value.trim() || 'YOUR_PROJECT.firebaseapp.com',
+    projectId: document.getElementById('settingsFbProjectId').value.trim() || 'YOUR_PROJECT_ID',
+    storageBucket: document.getElementById('settingsFbStorageBucket').value.trim() || 'YOUR_PROJECT.appspot.com',
+    messagingSenderId: document.getElementById('settingsFbSenderId').value.trim() || 'YOUR_SENDER_ID',
+    appId: document.getElementById('settingsFbAppId').value.trim() || 'YOUR_APP_ID'
+  };
+  const oldFbConfig = loadStoredFirebaseConfig();
+  const fbConfigChanged = JSON.stringify(oldFbConfig) !== JSON.stringify(newFbConfig);
+  try{ localStorage.setItem(SHARED_FB_CONFIG_KEY, JSON.stringify(newFbConfig)); }catch(e){}
+
+  statusEl.textContent = '✓ Saved.'; statusEl.className = 'status-msg ok';
+  if(fbConfigChanged){
+    statusEl.textContent = '✓ Saved — reloading to apply the Firebase change…';
+    setTimeout(()=>location.reload(), 900);
+  } else {
+    setTimeout(()=>{ statusEl.textContent=''; closeSettings(); }, 900);
+  }
+}
+
+function showAuthMsg(msg){
+  const el = document.getElementById('authMsg');
+  if(!el) return;
+  el.textContent = msg; el.style.display = 'block';
+  setTimeout(()=>{ el.style.display='none'; }, 6000);
+}
+
+function signInWithGoogle(){
+  if(!fbReady){ showAuthMsg('⚠ Cloud save isn\'t configured yet — this needs a Firebase project set up first.'); return; }
+  document.getElementById('loginSpinner').style.display = 'inline-block';
+  const provider = new firebase.auth.GoogleAuthProvider();
+  fbAuth.signInWithPopup(provider).catch(err=>{
+    document.getElementById('loginSpinner').style.display = 'none';
+    showAuthMsg('⚠ Sign-in failed: ' + err.message);
+  });
+}
+function signOutUser(){ if(fbReady) fbAuth.signOut(); }
+
+if(fbReady){
+  fbAuth.onAuthStateChanged(async(user)=>{
+    document.getElementById('loginSpinner').style.display = 'none';
+    if(user){
+      if(ALLOWED_EMAIL_DOMAIN && !user.email.endsWith('@'+ALLOWED_EMAIL_DOMAIN)){
+        showAuthMsg(`⚠ Only @${ALLOWED_EMAIL_DOMAIN} accounts are allowed.`);
+        fbAuth.signOut();
+        return;
+      }
+      currentUser = { uid: user.uid, email: user.email };
+      document.getElementById('signedOutView').style.display = 'none';
+      document.getElementById('signedInView').style.display = 'block';
+      document.getElementById('userEmailDisplay').textContent = user.email;
+      document.getElementById('cloudDraftsCard').style.display = 'block';
+      loadCloudDraftsList();
+    } else {
+      currentUser = null;
+      document.getElementById('signedOutView').style.display = 'block';
+      document.getElementById('signedInView').style.display = 'none';
+      document.getElementById('cloudDraftsCard').style.display = 'none';
+    }
+  });
+}
+
+/* Captures every field the app tracks — school info, standards, focus entries,
+   contextualization, reference material, format/duration settings, any locked-in
+   objectives, and any already-generated DLL content — as one bundle. Stored as a
+   JSON STRING rather than a raw object: Firestore rejects nested arrays (this app's
+   own focusEntries/day-editor data can easily produce that shape), and a string
+   sidesteps the restriction entirely regardless of how the data is structured. */
+function collectILAWState(){
+  const fieldIds = ['school','division','subject','gradeSection','term','startDate','endDate',
+    'contentStandard','performanceStandard','contextDetails','referenceMaterial','sessionDuration',
+    'timeBreakdown','preparedName','preparedPos','checkedName','checkedPos','approvedName','approvedPos'];
+  const fields = {};
+  fieldIds.forEach(id => { const el = document.getElementById(id); if(el) fields[id] = el.value; });
+  return {
+    fields,
+    currentFormat,
+    hasMorningAfternoon: document.getElementById('hasMorningAfternoon').checked,
+    focusEntries: JSON.parse(JSON.stringify(focusEntries)),
+    preGeneratedObjectives: JSON.parse(JSON.stringify(preGeneratedObjectives)),
+    dllData: JSON.parse(JSON.stringify(dllData))
+  };
+}
+
+function applyILAWState(state){
+  if(!state) return;
+  Object.entries(state.fields||{}).forEach(([id, val]) => { const el = document.getElementById(id); if(el) el.value = val; });
+  setFormat(state.currentFormat || 'five');
+  document.getElementById('hasMorningAfternoon').checked = !!state.hasMorningAfternoon;
+  focusEntries = (state.focusEntries && state.focusEntries.length) ? state.focusEntries : [{ text:'', days:[] }];
+  renderFocusEntries();
+  preGeneratedObjectives = state.preGeneratedObjectives || {};
+  renderObjectivesEditor();
+  dllData = state.dllData || {};
+  const hasContent = Object.keys(dllData).some(d => dllData[d] && Object.values(dllData[d]).some(v=>v&&v.trim && v.trim()));
+  if(hasContent){
+    renderDayEditors();
+    document.getElementById('previewCard').style.display = 'block';
+    document.getElementById('exportCard').style.display = 'block';
+    document.getElementById('lpExportCard').style.display = 'block';
+    renderLpDayChecklist();
+  }
+}
+
+async function saveCurrentDraftToCloud(){
+  if(!fbReady || !currentUser){ alert('Sign in first to save to the cloud.'); return; }
+  const defaultTitle = (document.getElementById('subject').value.trim() || 'Untitled DLL') + ' — Term ' + document.getElementById('term').value;
+  const title = prompt('Save this draft as:', defaultTitle);
+  if(title === null) return;
+  const state = collectILAWState();
+  const payload = {
+    title: title.trim() || defaultTitle,
+    subject: document.getElementById('subject').value.trim(),
+    stateJSON: JSON.stringify(state),
+    hasGeneratedContent: Object.keys(state.dllData||{}).length > 0,
+    savedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  try{
+    const col = fbDb.collection('users').doc(currentUser.uid).collection('ilawDrafts');
+    if(currentCloudDraftId){ await col.doc(currentCloudDraftId).set(payload); }
+    else { const ref = await col.add(payload); currentCloudDraftId = ref.id; }
+    await loadCloudDraftsList();
+    updateLoadedDraftBanner(payload.title);
+    alert('✓ Saved to the cloud.');
+  }catch(err){ alert('Could not save: ' + err.message); }
+}
+
+async function loadCloudDraftsList(){
+  if(!fbReady || !currentUser) return;
+  try{
+    const snap = await fbDb.collection('users').doc(currentUser.uid).collection('ilawDrafts').orderBy('savedAt','desc').get();
+    cloudDrafts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderCloudDraftsList();
+    document.getElementById('mergeDraftsCard').style.display = cloudDrafts.length>=2 ? 'block' : 'none';
+    renderMergeDraftDropdowns();
+  }catch(err){ console.warn('Could not load drafts list:', err); }
+}
+
+function renderMergeDraftDropdowns(){
+  const opts = '<option value="">— choose a saved draft —</option>' +
+    cloudDrafts.map(d => `<option value="${d.id}">${esc(d.title||'Untitled')}</option>`).join('');
+  document.getElementById('mergeDraftA').innerHTML = opts;
+  document.getElementById('mergeDraftB').innerHTML = opts;
+}
+
+function renderMergeDayPicker(){
+  const el = document.getElementById('mergeDayPicker');
+  const idA = document.getElementById('mergeDraftA').value;
+  const idB = document.getElementById('mergeDraftB').value;
+  if(!idA || !idB || idA===idB){ el.innerHTML = idA && idA===idB ? '<p class="hint">Pick two different drafts.</p>' : ''; return; }
+  const draftA = cloudDrafts.find(d=>d.id===idA), draftB = cloudDrafts.find(d=>d.id===idB);
+  let stateA, stateB;
+  try{ stateA = JSON.parse(draftA.stateJSON); stateB = JSON.parse(draftB.stateJSON); }
+  catch(e){ el.innerHTML = '<p class="hint" style="color:var(--warn);">Could not read one of these drafts.</p>'; return; }
+
+  // A day only counts as "available" from a draft if it actually has some non-blank
+  // content saved — a bare/empty day key (e.g. a draft saved before generating)
+  // shouldn't silently count as a real option, since that's the #1 reason a day's
+  // dropdown would end up showing only the OTHER draft's option.
+  const hasRealContent = (dllData, day) => {
+    const c = dllData && dllData[day];
+    return !!(c && Object.values(c).some(v => v && v.trim && v.trim()));
+  };
+  const daysA = Object.keys(stateA.dllData||{}).filter(d => hasRealContent(stateA.dllData, d));
+  const daysB = Object.keys(stateB.dllData||{}).filter(d => hasRealContent(stateB.dllData, d));
+  const allDays = [...new Set([...daysA, ...daysB])];
+  if(!allDays.length){ el.innerHTML = '<p class="hint" style="color:var(--warn);">Neither draft has generated day content yet.</p>'; return; }
+
+  // Flag up front if one whole draft has nothing generated — this is the most likely
+  // reason every day's dropdown would show only one option instead of two.
+  let warning = '';
+  if(!daysA.length) warning = `<p class="hint" style="display:block;margin-bottom:10px;color:var(--warn);">⚠ "${esc(draftA.title||'Draft A')}" has no generated content saved, so only "${esc(draftB.title||'Draft B')}" is selectable below. Generate the DLL content in that draft and save it again if you want to choose between both.</p>`;
+  else if(!daysB.length) warning = `<p class="hint" style="display:block;margin-bottom:10px;color:var(--warn);">⚠ "${esc(draftB.title||'Draft B')}" has no generated content saved, so only "${esc(draftA.title||'Draft A')}" is selectable below. Generate the DLL content in that draft and save it again if you want to choose between both.</p>`;
+
+  // Option label format: Day - Lesson (the draft's title) - Learning Objective —
+  // the objective is left off if it'd make the line too long to read comfortably.
+  const MAX_OBJECTIVE_CHARS = 90;
+  const optionLabel = (dllData, draftTitle, day) => {
+    const dayLabel = day.charAt(0) + day.slice(1).toLowerCase();
+    const lesson = draftTitle || 'Untitled draft';
+    const content = dllData ? dllData[day] : null;
+    const objectiveRaw = content ? (content['Learning Objectives'] || '').replace(/\*\*/g,'').replace(/\s+/g,' ').trim() : '';
+    const firstObjective = objectiveRaw.split(/(?<=[.?!])\s+/)[0] || ''; // just the first sentence, not the whole block
+    let label = `${dayLabel} - ${lesson}`;
+    if(firstObjective && firstObjective.length <= MAX_OBJECTIVE_CHARS) label += ` - ${firstObjective}`;
+    return label;
+  };
+
+  el.innerHTML = warning + `<p class="hint" style="display:block;margin-bottom:8px;">For each day, choose which draft's lesson to use in the merged export:</p>` +
+    allDays.map(day => {
+      const inA = daysA.includes(day), inB = daysB.includes(day);
+      const defaultSide = inA ? 'A' : 'B';
+      return `<div style="display:flex;align-items:center;gap:14px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px;">
+        <span style="width:90px;flex-shrink:0;">${day.charAt(0)+day.slice(1).toLowerCase()}</span>
+        <select class="merge-day-choice" data-day="${day}" style="flex:1;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:12.5px;font-family:'Inter',sans-serif;background:var(--paper);color:var(--ink);">
+          ${inA ? `<option value="A" ${defaultSide==='A'?'selected':''}>${esc(optionLabel(stateA.dllData, draftA.title, day))}</option>` : ''}
+          ${inB ? `<option value="B" ${defaultSide==='B'?'selected':''}>${esc(optionLabel(stateB.dllData, draftB.title, day))}</option>` : ''}
+        </select>
+      </div>`;
+    }).join('');
+}
+
+async function exportMergedDLL(){
+  const statusEl = document.getElementById('mergeStatus');
+  const idA = document.getElementById('mergeDraftA').value;
+  const idB = document.getElementById('mergeDraftB').value;
+  if(!idA || !idB || idA===idB){ statusEl.textContent='⚠ Choose two different drafts first.'; statusEl.className='status-msg error'; return; }
+  const draftA = cloudDrafts.find(d=>d.id===idA), draftB = cloudDrafts.find(d=>d.id===idB);
+  let stateA, stateB;
+  try{ stateA = JSON.parse(draftA.stateJSON); stateB = JSON.parse(draftB.stateJSON); }
+  catch(e){ statusEl.textContent='⚠ Could not read one of these drafts.'; statusEl.className='status-msg error'; return; }
+
+  const choices = [...document.querySelectorAll('.merge-day-choice')];
+  if(!choices.length){ statusEl.textContent='⚠ No days available — pick two different drafts with generated content.'; statusEl.className='status-msg error'; return; }
+
+  // Build a merged dllData using each day's chosen source, then reuse the SAME
+  // fields (school/subject/term/etc.) already active in the current form — the
+  // merge only combines DAY CONTENT, not the surrounding header info, so whichever
+  // header you currently have filled in is what the export uses.
+  const mergedDllData = {};
+  choices.forEach(select => {
+    const day = select.dataset.day;
+    const source = select.value==='A' ? stateA : stateB;
+    if(source.dllData && source.dllData[day]) mergedDllData[day] = source.dllData[day];
+  });
+
+  const previousDllData = dllData;
+  dllData = mergedDllData;
+  try{
+    await exportDLL();
+    statusEl.textContent = '✓ Merged and downloaded.'; statusEl.className='status-msg ok';
+  }catch(err){
+    statusEl.textContent = '⚠ ' + err.message; statusEl.className='status-msg error';
+  }finally{
+    dllData = previousDllData; // restore the current session's own data, unaffected by the merge
+  }
+}
+
+function renderCloudDraftsList(){
+  const el = document.getElementById('cloudDraftsList');
+  if(!el) return;
+  if(cloudDrafts.length === 0){ el.innerHTML = '<div style="font-size:12.5px;color:var(--muted);">No saved drafts yet.</div>'; return; }
+  el.innerHTML = cloudDrafts.map(d => {
+    const dt = d.savedAt && d.savedAt.toDate ? d.savedAt.toDate().toLocaleString([], {dateStyle:'medium', timeStyle:'short'}) : '';
+    const note = d.hasGeneratedContent ? ' · includes generated content' : '';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;">
+      <div>
+        <div style="font-size:13px;font-weight:600;">${esc(d.title||'Untitled')}</div>
+        <div style="font-size:11px;color:var(--muted);">saved ${dt}${note}</div>
+      </div>
+      <div class="btn-row" style="margin:0;">
+        <button class="btn btn-sm" onclick="loadCloudDraft('${d.id}')">Load</button>
+        <button class="btn btn-sm btn-outline" onclick="deleteCloudDraft('${d.id}')">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function loadCloudDraft(id){
+  const d = cloudDrafts.find(x => x.id === id);
+  if(!d) return;
+  try{
+    const state = JSON.parse(d.stateJSON);
+    applyILAWState(state);
+    currentCloudDraftId = id;
+    updateLoadedDraftBanner(d.title);
+  }catch(err){ alert('Could not load this draft: ' + err.message); }
+}
+
+async function deleteCloudDraft(id){
+  if(!fbReady || !currentUser) return;
+  if(!confirm('Delete this saved draft? This cannot be undone.')) return;
+  try{
+    await fbDb.collection('users').doc(currentUser.uid).collection('ilawDrafts').doc(id).delete();
+    if(currentCloudDraftId === id) currentCloudDraftId = null;
+    await loadCloudDraftsList();
+  }catch(err){ alert('Could not delete: ' + err.message); }
+}
+
+function updateLoadedDraftBanner(title){
+  const el = document.getElementById('loadedDraftBanner');
+  if(!el) return;
+  if(title){ el.style.display = 'block'; el.innerHTML = `📍 Currently editing: <strong>${esc(title)}</strong> (loaded from the cloud)`; }
+  else { el.style.display = 'none'; }
+}
+
+const TERM_LABELS = { '1': 'FIRST', '2': 'SECOND', '3': 'THIRD' };
+function getTermHeading(){
+  const term = document.getElementById('term').value;
+  return `${TERM_LABELS[term] || 'FIRST'} TRIMESTER DAILY LESSON LOG`;
+}
+function formatDateRange(){
+  const start = document.getElementById('startDate').value;
+  const end = document.getElementById('endDate').value;
+  if(!start && !end) return '';
+  const fmt = (iso) => iso ? new Date(iso+'T00:00:00').toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric'}) : '';
+  if(start && end) return `${fmt(start)} – ${fmt(end)}`;
+  return fmt(start) || fmt(end);
+}
+
+function normalizeWorkerUrl(url){
+  url=(url||'').trim();
+  if(url && !/^https?:\/\//i.test(url)) url='https://'+url;
+  return url.replace(/\/+$/,'');
+}
+
+/* Repairs a common LLM JSON-output reliability issue: literal (unescaped) newline,
+   carriage-return, or tab characters left inside a string value, which is invalid JSON
+   and breaks JSON.parse with an error like "Expected ',' or '}' after property value".
+   This becomes more likely the longer and more deliberately multi-paragraph a string
+   field is asked to be (exactly the case for Flow's blank-line-separated phases), since
+   the model can correctly reason about the content while still forgetting to escape a
+   raw newline in the serialized JSON. Walks the text tracking whether we're inside a
+   string literal (respecting \" escape pairs) and only touches characters found there —
+   structural JSON whitespace outside strings is left completely alone. */
+function sanitizeJSONString(raw){
+  let result=''; let inString=false; let escaped=false;
+  for(let i=0;i<raw.length;i++){
+    const ch=raw[i];
+    if(escaped){ result+=ch; escaped=false; continue; }
+    if(ch==='\\'){ result+=ch; escaped=true; continue; }
+    if(ch==='"'){ inString=!inString; result+=ch; continue; }
+    if(inString){
+      if(ch==='\n'){ result+='\\n'; continue; }
+      if(ch==='\r'){ result+='\\r'; continue; }
+      if(ch==='\t'){ result+='\\t'; continue; }
+    }
+    result+=ch;
+  }
+  return result;
+}
+function safeJSONParse(text){
+  try{ return JSON.parse(text); }
+  catch(err){
+    try{ return JSON.parse(sanitizeJSONString(text)); }
+    catch(err2){ throw err; } // surface the ORIGINAL error — more useful for debugging than the repair attempt's
+  }
+}
+
+async function callGemini(promptText){
+  const workerUrl = normalizeWorkerUrl(document.getElementById('workerUrl').value);
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if(!workerUrl) throw new Error('Set your Cloudflare Worker URL in AI Setup first.');
+  if(!apiKey) throw new Error('Set your Gemini API key in AI Setup first.');
+  const res = await fetch(workerUrl, {
+    method: 'POST',
+    body: JSON.stringify({
+      model: 'gemini-2.5-flash',
+      apiKey,
+      contents: [{ parts: [{ text: promptText }] }],
+      generationConfig: { responseMimeType: 'application/json', temperature: 0.7 }
+    })
+  });
+  if(!res.ok){
+    const errBody = await res.text();
+    throw new Error(`Worker/Gemini error (${res.status}): ${errBody.slice(0,200)}`);
+  }
+  const data = await res.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if(!text) throw new Error('Gemini returned an empty response.');
+  return safeJSONParse(text);
+}
+
+function gatherPromptContext(){
+  const school = document.getElementById('school').value.trim() || 'the school';
+  const subject = document.getElementById('subject').value.trim() || 'the subject';
+  const gradeSection = document.getElementById('gradeSection').value.trim();
+  const termLabel = `Term ${document.getElementById('term').value}`;
+  const dateRange = formatDateRange();
+  const days = currentFormat==='five' ? DAYS_FIVE : DAYS_FOUR;
+  const activeFocusEntries = focusEntries.filter(e => e.text.trim());
+  let focusSection;
+  if(activeFocusEntries.length <= 1){
+    const singleText = activeFocusEntries[0] ? activeFocusEntries[0].text.trim() : '';
+    focusSection = `Weekly Focus / Competency to cover across the week: "${singleText}"
+
+Split this week's focus into ${days.length} days (${days.join(', ')}), each covering a distinct, logically sequenced sub-topic that builds toward the full competency by the end of the week.`;
+  } else {
+    const lines = activeFocusEntries.map((e,i) => {
+      const dayNote = e.days.length ? ` — applies specifically to: ${e.days.join(', ')}` : ' — applies across the whole week (no specific days pinned)';
+      return `${i+1}. "${e.text.trim()}"${dayNote}`;
+    }).join('\n');
+    focusSection = `This week covers MULTIPLE distinct competencies/focuses, not just one:
+${lines}
+
+For any focus pinned to specific days, base ONLY those days' content on that focus. For any focus with no days pinned, weave it in naturally across whichever days make sense — it isn't restricted to particular days. Every one of the ${days.length} days (${days.join(', ')}) still needs a distinct, logically sequenced sub-topic, sourced from the correct focus for that day.`;
+  }
+  const contentStandard = document.getElementById('contentStandard').value.trim();
+  const performanceStandard = document.getElementById('performanceStandard').value.trim();
+  const contextDetails = document.getElementById('contextDetails').value.trim();
+  const duration = document.getElementById('sessionDuration').value;
+  const timeBreakdown = document.getElementById('timeBreakdown').value.trim();
+  const hasMorningAfternoon = document.getElementById('hasMorningAfternoon').checked;
+
+  // Contextualization quality standard, informed by Philippine education research on
+  // Contextualized Instructional Materials (Dohinog et al., 2025, Psych Educ 44(2)):
+  // effective contextualization connects to BOTH learners' real-life experiences AND
+  // locally available materials/resources — studies consistently found shallow, single-
+  // dimension attempts (e.g. one place-name mention) score lower and are less effective
+  // than context that's genuinely woven into how the concept is explained or practiced.
+  const CONTEXT_QUALITY_STANDARD = `When contextualizing, do both of these together, not just one: (1) connect the concept to a real-life situation or experience the learners would recognize, and (2) draw on locally available materials, tools, occupations/livelihoods, or language where relevant to the subject. A single generic place-name mention is not enough — the local detail should be integral to explaining or practicing the concept, not decorative. Always be respectful and inclusive of whatever background is described; never stereotype or single out any group.`;
+  const contextLine = contextDetails
+    ? `Localize examples using these specific details about the learners: "${contextDetails}".\n${CONTEXT_QUALITY_STANDARD}`
+    : `No specific learner context was provided — use general, inclusive examples appropriate for a public secondary school, without assuming any particular city, culture, or religion. Still apply the same standard: connect to plausible real-life situations, not just abstract description.\n${CONTEXT_QUALITY_STANDARD}`;
+
+  const referenceMaterial = document.getElementById('referenceMaterial').value.trim();
+  const refBlock = referenceMaterial
+    ? `\n\nREFERENCE MATERIAL (ground the content in this — draw concepts, examples, and terminology from it where relevant, but paraphrase in your own words rather than copying long verbatim passages):\n"""\n${referenceMaterial}\n"""\n`
+    : '';
+
+  return { school, subject, gradeSection, termLabel, dateRange, days, focusSection, contentStandard, performanceStandard, duration, timeBreakdown, hasMorningAfternoon, contextLine, refBlock };
+}
+
+function buildDLLPrompt(){
+  const { school, subject, gradeSection, termLabel, dateRange, days, focusSection, contentStandard, performanceStandard, duration, timeBreakdown, hasMorningAfternoon, contextLine, refBlock } = gatherPromptContext();
+  const objectivesLocked = Object.values(preGeneratedObjectives).some(v => v && v.trim());
+  const genLabels = objectivesLocked ? ROW_LABELS.filter(l => l !== 'Learning Objectives') : ROW_LABELS;
+
+  return `You are drafting a Daily Lesson Log (DLL) in the ILAW format for ${school}.
+${contextLine}${refBlock}
+
+Subject: ${subject}
+Grade & Section: ${gradeSection}
+${termLabel}${dateRange ? `, covering ${dateRange}` : ''}
+Session Duration: ${duration} per session — pace the Flow's depth and number of activities realistically for this amount of time. A 40-minute session should cover noticeably less ground per phase than a 2-hour session; don't pack a 2-hour lesson's worth of activity into a 40-minute slot, or thin out a 2-hour slot with only a few minutes of described activity.${timeBreakdown ? `\nTime Breakdown within each session: "${timeBreakdown}" — structure the Flow's phases to actually match this split (e.g. if part of the time is for discussion/lecture and part for hands-on practice, make sure the framework's phases map onto that split realistically, not just as a passing mention).` : ''}
+${hasMorningAfternoon ? `This schedule has separate MORNING and AFTERNOON sessions each day, each ${duration} long. For "Flow" and "Learning Objectives" on every day, write TWO clearly separated blocks — start each with a bold heading on its own line, "**Morning Session:**" or "**Afternoon Session:**", followed by a blank line, then that session's full content following all the same rules below. Morning and afternoon can cover different sub-topics or different phases of the same topic, whichever makes more sense for that day — but each session needs its own complete Flow and its own 2 Learning Objectives (4 objectives total for the day, 2 per session), not one shared set.` : ''}
+${focusSection}
+${(contentStandard||performanceStandard) ? `\nFor reference (already recorded separately in the document — do NOT reproduce this text yourself, just use it to keep each day's Learning Competency genuinely building toward it):\n${contentStandard?`Content Standard: "${contentStandard}"\n`:''}${performanceStandard?`Performance Standard: "${performanceStandard}"\n`:''}` : ''}
+
+INSTRUCTIONAL FRAMEWORK — for each day${hasMorningAfternoon ? ' (and for each session, if morning/afternoon apply)' : ''}, choose whichever framework actually fits that day's specific content best, from: ${AVAILABLE_FRAMEWORKS}. Don't rotate through them mechanically — a skills-demonstration day may suit 4A's better than a discussion-heavy day, for example. Different days can use the same framework if that's genuinely the best fit; there's no requirement to use a different one each day.
+
+Embed these six Learning Design Principles naturally into the "Flow" section of every day, WITHOUT naming them explicitly (do not write "Learning Design Principle 1" or similar labels — just make sure the actual Flow content reflects each one):
+1. Motivation and relevance to real-world/learner context
+2. Active student participation, not passive lecture
+3. Scaffolded progression from simple to complex
+4. Formative checks for understanding built into the flow itself
+5. Collaborative or peer-supported learning opportunities
+6. Reflection and metacognition prompts
+
+${objectivesLocked ? `Learning Objectives have ALREADY been finalized by the teacher separately — do NOT write or include a "Learning Objectives" field at all. Write only these ${genLabels.length} components per day:\n${genLabels.map(l=>`- ${l}`).join('\n')}` : `For each day, write these exact ${genLabels.length} components:\n${genLabels.map(l=>`- ${l}`).join('\n')}`}
+
+FLOW FORMATTING (follow this precisely — this is the most common formatting mistake, so read it carefully):
+- Start with the chosen framework in bold on its own line, like: **4A's (Activity–Analysis–Abstraction–Application)**
+- Put a blank line right after the framework line, before the first phase.
+- Then write ONE plain paragraph per phase of that framework (e.g. one for Activity, one for Analysis, one for Abstraction, one for Application) — NO bullet marker, NO "- " prefix (the day column is narrow, so bullet indentation wastes space) — just the phase name bolded at the start of its own paragraph, like: "**Activity:** ..."
+- Each phase's paragraph is ONE continuous block of text — do not break the sentences within a single phase onto separate lines.
+- Put a blank line between each phase's paragraph and the next, so every phase is visually its own distinct block — never merge two phases into the same paragraph or run them together.
+- Each phase must name the SPECIFIC topic, concept, term, or skill being taught at that step, not just the activity type — a reader should be able to tell exactly what's being taught from the Flow alone. Keep each phase to 1-3 sentences even with content embedded.
+
+LEARNER CONTEXT FORMATTING — if you're making more than one distinct observation (e.g. one about general engagement, another about a specific barrier or need), put each as its own plain paragraph with a blank line between them, same convention as Flow's phases. A single short observation can just be one paragraph, no blank line needed.
+
+${objectivesLocked ? '' : `LEARNING OBJECTIVES — write exactly 2 objectives${hasMorningAfternoon ? ' per session' : ' per day'}, following this standard structure (based on measurable-objective conventions):
+- Start with a declarative sentence-starter: "Students will", "Students will be able to", or "Students can".
+- Then include, in order: (1) an observable VERB describing the performance — never vague/unobservable verbs like "understand", "know", "learn", "appreciate", "be aware of"; use a concrete, observable verb instead (e.g. "identify", "explain", "demonstrate", "compare", "construct", "evaluate", "design" — pick the verb whose cognitive level actually matches how deep this day's content goes, from simple recall up to analysis/evaluation/creation as appropriate); (2) the specific CONTENT being taught, aligned to the day's competency; (3) a concrete MEASUREMENT — the specific evidence or output the teacher will collect from each student by the end of the session (e.g. "using the provided worksheet", "by completing the labeled diagram", "through their group's written checklist") — not just the activity, but the actual proof of learning produced.
+- Each objective is one sentence, written concisely, with no strategy/grouping/anticipatory-set details folded in — those belong in Flow, not here.
+- FORMATTING: write each objective as its own plain paragraph — NO bullet marker, NO "- " prefix — and put a blank line between the two objectives, so they're visually distinct rather than run together.`}
+
+TEXT FORMATTING — apply this to every OTHER field's content (Flow and Learning Objectives have their own more specific rules above; these render in a plain-text box, so use these plain-text conventions rather than real markdown/HTML):
+- Any heading, subheading, or important term should be wrapped in double asterisks for bold, like **this**.
+- Lists should be written as bulleted lines, each starting with "- ".
+- After a passage or paragraph, leave exactly one blank line before the next one.
+
+Do NOT reference "the module" in any way — never write phrases like "the module advises", "the module says", "based on the module", or similar. Write standalone instructional content only.
+
+Return ONLY a JSON object (no markdown code fences wrapping the JSON itself, no explanation before or after it) shaped exactly like this — the bold/bullet formatting above still applies WITHIN each field's own text value:
+{
+  "MONDAY": { ${genLabels.map(l=>`"${l}": "..."`).join(', ')} },
+  "TUESDAY": { ... same shape ... }
+}
+Include exactly these days as top-level keys: ${days.join(', ')}.`;
+}
+
+/* STAR is used here as a DRAFTING SCAFFOLD, not a literal 4-part output — Situation and
+   Task inform the objective's CONTENT, Action becomes the observable VERB, and Result
+   becomes the MEASUREMENT. The final objective is still written as one proper sentence
+   in the same declarative-starter + verb + content + measurement form used elsewhere,
+   not four separate labeled parts (that would violate the "one concise sentence" rule
+   and wouldn't match the Learning Objectives cell's own formatting once locked in). */
+function buildObjectivesPrompt(){
+  const { school, subject, gradeSection, days, focusSection, hasMorningAfternoon, refBlock } = gatherPromptContext();
+  return `You are drafting ONLY the Learning Objectives for a Daily Lesson Log at ${school}, ${subject}, ${gradeSection}.
+${refBlock}
+${refBlock ? 'Reference Material was provided above — base each day\'s objectives directly on what it actually covers. The CONTENT portion of each objective should name the specific sub-topics, skills, or terms the material discusses for that part of the week, not just a generic restatement of the Weekly Focus. If the material doesn\'t cover something needed for a particular day, fall back to the Weekly Focus / Competency below for that day only.' : ''}
+${focusSection}
+
+For each day, draft using the STAR method as a scaffold before writing the final objective:
+- Situation: the context or scenario the learners are working within.
+- Task: what needs to be accomplished within that situation.
+- Action: the specific observable behavior/verb the learner performs.
+- Result: the measurable outcome or evidence produced.
+
+Then compress Situation+Task into the objective's CONTENT, Action into its VERB, and Result into its MEASUREMENT, and write ONE proper objective sentence per the standard below — do NOT output the four STAR labels themselves, they're only a drafting aid.
+
+Write exactly 2 objectives${hasMorningAfternoon ? ' per session (4 total per day, 2 for Morning, 2 for Afternoon)' : ' per day'}, following this structure:
+- Start with a declarative sentence-starter: "Students will", "Students will be able to", or "Students can".
+- Then include, in order: (1) an observable VERB describing the performance — never vague/unobservable verbs like "understand", "know", "learn", "appreciate", "be aware of"; use a concrete, observable verb instead (e.g. "identify", "explain", "demonstrate", "compare", "construct", "evaluate", "design"); (2) the specific CONTENT being taught; (3) a concrete MEASUREMENT — the specific evidence or output the teacher will collect from each student.
+- Each objective is one sentence, written concisely.
+${hasMorningAfternoon ? '- If sessions apply, write "**Morning Session:**" then its 2 objectives, a blank line, then "**Afternoon Session:**" then its 2 objectives — same convention used elsewhere in this app.' : ''}
+- FORMATTING: each objective as its own plain paragraph (no bullet marker, no "- " prefix), with a blank line between objectives.
+
+Do NOT reference "the module" in any way.
+
+Return ONLY a JSON object (no markdown code fences, no explanation) shaped exactly like this:
+{ "MONDAY": "...", "TUESDAY": "..." }
+Include exactly these days as top-level keys: ${days.join(', ')}.`;
+}
+
+async function generateObjectives(){
+  const btn = document.getElementById('genObjBtn');
+  const statusEl = document.getElementById('genObjStatus');
+  const hasFocusText = focusEntries.some(e => e.text.trim());
+  if(!hasFocusText){ statusEl.textContent = '⚠ Fill in at least one Weekly Focus entry first.'; statusEl.className='status-msg error'; return; }
+  btn.disabled = true;
+  statusEl.textContent = '✨ Drafting objectives…'; statusEl.className='status-msg';
+  try{
+    const result = await callGemini(buildObjectivesPrompt());
+    preGeneratedObjectives = result;
+    renderObjectivesEditor();
+    statusEl.textContent = '✓ Drafted — review and edit below. These will be used exactly as-is when you generate the full DLL.'; statusEl.className='status-msg ok';
+  }catch(err){
+    statusEl.textContent = '⚠ ' + err.message; statusEl.className='status-msg error';
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function renderObjectivesEditor(){
+  const container = document.getElementById('objectivesEditor');
+  if(!container) return;
+  const days = currentFormat==='five' ? DAYS_FIVE : DAYS_FOUR;
+  const hasAny = days.some(d => preGeneratedObjectives[d] && preGeneratedObjectives[d].trim());
+  if(!hasAny){ container.innerHTML=''; return; }
+  container.innerHTML = days.map(day => {
+    const text = preGeneratedObjectives[day] || '';
+    return `<div class="day-row">
+      <label>${esc(day.charAt(0)+day.slice(1).toLowerCase())}</label>
+      <div class="grow-wrap day-row-wrap" data-replicated-value="${esc(text)}"><textarea data-obj-day="${esc(day)}" oninput="this.parentNode.dataset.replicatedValue=this.value;preGeneratedObjectives['${day}']=this.value">${esc(text)}</textarea></div>
+    </div>`;
+  }).join('');
+}
+
+async function generateDLL(){
+  const btn = document.getElementById('genBtn');
+  const statusEl = document.getElementById('genStatus');
+  const hasFocusText = focusEntries.some(e => e.text.trim());
+  if(!hasFocusText){ statusEl.textContent = '⚠ Fill in at least one Weekly Focus / Learning Competency entry first.'; statusEl.className='status-msg error'; return; }
+  btn.disabled = true;
+  statusEl.textContent = '✨ Generating… this may take a moment.'; statusEl.className='status-msg';
+  try{
+    const result = await callGemini(buildDLLPrompt());
+    dllData = result;
+    // "Total control" is enforced here, not just requested in the prompt: if objectives
+    // were locked in beforehand, they're forcibly written into the result now — even if
+    // Gemini's response somehow included its own "Learning Objectives" text anyway.
+    Object.keys(preGeneratedObjectives).forEach(day => {
+      if(preGeneratedObjectives[day] && preGeneratedObjectives[day].trim()){
+        if(!dllData[day]) dllData[day] = {};
+        dllData[day]['Learning Objectives'] = preGeneratedObjectives[day];
+      }
+    });
+    renderDayEditors();
+    document.getElementById('previewCard').style.display = 'block';
+    document.getElementById('exportCard').style.display = 'block';
+    document.getElementById('lpExportCard').style.display = 'block';
+    renderLpDayChecklist();
+    statusEl.textContent = '✓ Generated — review and edit below before exporting.'; statusEl.className='status-msg ok';
+  }catch(err){
+    statusEl.textContent = '⚠ ' + err.message; statusEl.className='status-msg error';
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function renderDayEditors(){
+  const days = currentFormat==='five' ? DAYS_FIVE : DAYS_FOUR;
+  const container = document.getElementById('dayEditors');
+  container.innerHTML = days.map(day => {
+    const dayContent = dllData[day] || {};
+    const rows = ROW_LABELS.map(label => `
+      <div class="day-row">
+        <label>${esc(label)}</label>
+        <div class="grow-wrap day-row-wrap" data-replicated-value="${esc(dayContent[label]||'')}"><textarea data-day="${esc(day)}" data-label="${esc(label)}" oninput="this.parentNode.dataset.replicatedValue=this.value">${esc(dayContent[label]||'')}</textarea></div>
+      </div>
+    `).join('');
+    return `<div class="day-editor">
+      <div class="day-editor-head"><span>${esc(day)}</span></div>
+      <div class="day-editor-body">${rows}</div>
+    </div>`;
+  }).join('');
+}
+
+function collectEditedData(){
+  const data = {};
+  document.querySelectorAll('#dayEditors textarea').forEach(ta=>{
+    const day = ta.dataset.day, label = ta.dataset.label;
+    if(!data[day]) data[day] = {};
+    data[day][label] = ta.value;
+  });
+  return data;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   TEMPLATE-BASED EXPORT — fills your actual uploaded ILAW DLL templates
+   (both the 4-day and 5-day .docx files) directly, cell by cell, by their
+   exact w14:paraId — the same precise technique used when this template was
+   edited manually earlier. The table structure, borders, fonts, and every
+   built-in guidance label are never touched; only the blank content cells
+   get filled in. Nothing is built from scratch.
+   ═══════════════════════════════════════════════════ */
+// This is the EXACT logic that will be embedded in the browser app (JSZip handles the
+// zip I/O there; here we test against the already-unpacked document.xml directly).
+
+function xmlEscape(s){
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                .replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+}
+
+let _extraParaIdCounter = 0;
+function nextExtraParaId(){
+  _extraParaIdCounter++;
+  return _extraParaIdCounter.toString(16).padStart(8,'0').toUpperCase();
+}
+
+function buildRun(text, bold, sizeHalfPoints){
+  const sz = sizeHalfPoints || 20;
+  const rpr = `<w:rPr><w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/>` + (bold?'<w:b/><w:bCs/>':'') + '</w:rPr>';
+  return `<w:r>${rpr}<w:t xml:space="preserve">${xmlEscape(text)}</w:t></w:r>`;
+}
+
+function buildParagraph(line, paraId, isBullet, opts){
+  opts = opts || {};
+  const parts = line.split(/(\*\*.*?\*\*)/);
+  let runs = '';
+  for(const part of parts){
+    if(!part) continue;
+    if(part.startsWith('**') && part.endsWith('**')) runs += buildRun(part.slice(2,-2), true, opts.sizeHalfPoints);
+    else runs += buildRun(part, !!opts.forceBold, opts.sizeHalfPoints);
+  }
+  const pidAttr = paraId ? `w14:paraId="${paraId}" w14:textId="77777777" ` : '';
+  const numPr = isBullet ? '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr>' : '';
+  const jc = opts.align ? `<w:jc w:val="${opts.align}"/>` : '';
+  const sz = opts.sizeHalfPoints || 20;
+  const boldRpr = opts.forceBold ? '<w:b/><w:bCs/>' : '';
+  const pPr = `<w:pPr>${numPr}${jc}<w:rPr><w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/>${boldRpr}</w:rPr></w:pPr>`;
+  return `<w:p ${pidAttr}>${pPr}${runs}</w:p>`;
+}
+
+function buildCellContent(text, firstParaId, opts){
+  const lines = (text||'').split('\n');
+  let out = '';
+  lines.forEach((line, i) => {
+    const isBullet = line.trim().startsWith('- ');
+    const clean = isBullet ? line.trim().slice(2) : line;
+    const pid = i===0 ? firstParaId : nextExtraParaId();
+    out += buildParagraph(clean, pid, isBullet, opts);
+  });
+  return out;
+}
+
+function replaceParagraph(xml, paraId, newText, opts){
+  const re = new RegExp(`<w:p[ >][^>]*w14:paraId="${paraId}"[^>]*>.*?</w:p>`, 's');
+  const match = xml.match(re);
+  if(!match){ console.warn('paraId NOT FOUND:', paraId); return xml; }
+  const replacement = buildCellContent(newText, paraId, opts);
+  return xml.slice(0, match.index) + replacement + xml.slice(match.index + match[0].length);
+}
+
+/* Removes an entire table row (finds whichever <w:tr>...</w:tr> block contains the
+   given paraId, and deletes that whole block) — used to remove "Name of Lesson"
+   entirely, since a DLL spans multiple days rather than naming one single lesson. */
+function removeTableRow(xml, anyParaIdInRow){
+  const re = /<w:tr[ >][^]*?<\/w:tr>/g;
+  let match;
+  while((match = re.exec(xml)) !== null){
+    if(match[0].includes(anyParaIdInRow)){
+      return xml.slice(0, match.index) + xml.slice(match.index + match[0].length);
+    }
+  }
+  console.warn('Row containing paraId not found:', anyParaIdInRow);
+  return xml;
+}
+
+function fillDLLTemplate(xml, paraIdMap, headerData, dayData, signatures){
+  // Remove the "Name of Lesson" row entirely — a DLL covers a full week of varying
+  // daily topics, not one single named lesson, so this row doesn't apply.
+  xml = removeTableRow(xml, paraIdMap.header.nameOfLesson);
+  // Header
+  for(const [key, paraId] of Object.entries(paraIdMap.header)){
+    if(key==='nameOfLesson') continue; // row removed above — nothing to fill
+    if(headerData[key]===undefined) continue;
+    const opts = key==='termHeading' ? { align: 'center', sizeHalfPoints: 24, forceBold: true } : undefined;
+    xml = replaceParagraph(xml, paraId, headerData[key], opts);
+  }
+  // Day content
+  for(const [day, rowMap] of Object.entries(paraIdMap.days)){
+    for(const [label, paraId] of Object.entries(rowMap)){
+      const content = (dayData[day] && dayData[day][label]) || '';
+      xml = replaceParagraph(xml, paraId, content);
+    }
+  }
+  // Signatures
+  for(const [key, paraId] of Object.entries(paraIdMap.signatures)){
+    if(signatures[key]!==undefined) xml = replaceParagraph(xml, paraId, signatures[key]);
+  }
+  return xml;
+}
+
+
+
+const PARAID_MAP_5DAY = {"header": {"nameOfLesson": "07B4E820", "learningArea": "3EC73997", "designedBy": "347EBDE5", "gradeSection": "0CC4CD16", "noOfSessions": "6B4E4239", "references": "4F2EE826", "aiDeclaration": "5DC43C19", "termHeading": "6FC4D4E7"}, "days": {"MONDAY": {"Learning Competency": "45557F0E", "Learning Objectives": "34264255", "Learner Context": "6CE29AA0", "Pre-Lesson": "533C62D3", "Flow": "03E41165", "Learning Resources": "7DC4378E", "Opportunities for Integration": "43CA5743", "Formative Assessment": "43CBDFA2", "Extended Learning Opportunities": "4E3B4ADA", "Reflections": "5DD90635"}, "TUESDAY": {"Learning Competency": "7BF8036A", "Learning Objectives": "3ACB906B", "Learner Context": "4C52E356", "Pre-Lesson": "4EA81C88", "Flow": "5F7C0231", "Learning Resources": "6B9430CE", "Opportunities for Integration": "44827D15", "Formative Assessment": "7F4F25C9", "Extended Learning Opportunities": "53B369F5", "Reflections": "69D01663"}, "WEDNESDAY": {"Learning Competency": "74A7F6B6", "Learning Objectives": "2E703509", "Learner Context": "22E833C9", "Pre-Lesson": "225B6C1E", "Flow": "336CFBFA", "Learning Resources": "2F21302B", "Opportunities for Integration": "5D055D01", "Formative Assessment": "1A698B5B", "Extended Learning Opportunities": "24F4B0E6", "Reflections": "6EF7CCD2"}, "THURSDAY": {"Learning Competency": "6AB09209", "Learning Objectives": "21AF5DC8", "Learner Context": "41175BD1", "Pre-Lesson": "284F8527", "Flow": "770B680E", "Learning Resources": "2741B9AA", "Opportunities for Integration": "31CDC90E", "Formative Assessment": "5E13D4EF", "Extended Learning Opportunities": "5A3339AD", "Reflections": "337993F8"}, "FRIDAY": {"Learning Competency": "12DF4F18", "Learning Objectives": "7B2C1C60", "Learner Context": "39ACCFED", "Pre-Lesson": "0E8C5877", "Flow": "133FFA4F", "Learning Resources": "74155401", "Opportunities for Integration": "490D2824", "Formative Assessment": "402D88C4", "Extended Learning Opportunities": "54E8016F", "Reflections": "4103CDDC"}}, "signatures": {"preparedName": "43142195", "preparedPos": "0FAFA9F8", "checkedName": "76592066", "checkedPos": "61184378", "approvedName": "543CF000", "approvedPos": "7AE12B28"}};
+const PARAID_MAP_4DAY = {"header": {"nameOfLesson": "07B4E820", "learningArea": "3EC73997", "designedBy": "347EBDE5", "gradeSection": "0CC4CD16", "noOfSessions": "6B4E4239", "references": "4F2EE826", "aiDeclaration": "5DC43C19", "termHeading": "6FC4D4E7"}, "days": {"MONDAY": {"Learning Competency": "3DAB6042", "Learning Objectives": "5A4DCC45", "Learner Context": "1712F7C5", "Pre-Lesson": "54CBD50A", "Flow": "5BBBF216", "Learning Resources": "1B7B21E3", "Opportunities for Integration": "51B9B0A6", "Formative Assessment": "784A76B0", "Extended Learning Opportunities": "37CAD21D", "Reflections": "135F30F7"}, "TUESDAY": {"Learning Competency": "72988D2E", "Learning Objectives": "75A251FF", "Learner Context": "4DB7F564", "Pre-Lesson": "2AB8BEAB", "Flow": "54432303", "Learning Resources": "5DCFAF3F", "Opportunities for Integration": "5BBAAD5D", "Formative Assessment": "5BB83FF0", "Extended Learning Opportunities": "7AEB8463", "Reflections": "45E62BB4"}, "WEDNESDAY": {"Learning Competency": "616D094E", "Learning Objectives": "6F30A928", "Learner Context": "254DD958", "Pre-Lesson": "0C777E64", "Flow": "2EA30EF2", "Learning Resources": "0382DD0E", "Opportunities for Integration": "2399B98E", "Formative Assessment": "4679B9B9", "Extended Learning Opportunities": "3842D2B6", "Reflections": "2A27662B"}, "THURSDAY": {"Learning Competency": "2F0AEF3F", "Learning Objectives": "7B2C1C60", "Learner Context": "39ACCFED", "Pre-Lesson": "0E8C5877", "Flow": "133FFA4F", "Learning Resources": "74155401", "Opportunities for Integration": "490D2824", "Formative Assessment": "402D88C4", "Extended Learning Opportunities": "54E8016F", "Reflections": "4103CDDC"}}, "signatures": {"preparedName": "43142195", "preparedPos": "0FAFA9F8", "checkedName": "76592066", "checkedPos": "61184378", "approvedName": "543CF000", "approvedPos": "7AE12B28"}};
+
+// Templates are stored as separate .docx files (see /templates folder) and
+// fetched on demand — keeps this page lightweight instead of embedding
+// megabytes of base64 for every visitor, since this is hosted on GitHub Pages.
+const TEMPLATE_FILES = {
+  five: 'templates/template-5day.docx',
+  four: 'templates/template-4day.docx',
+  lpDayPerPage: 'templates/template-lp-daypage.docx'
+};
+const templateBufferCache = {};
+async function loadTemplateBuffer(key){
+  if(templateBufferCache[key]) return templateBufferCache[key];
+  const url = TEMPLATE_FILES[key];
+  const resp = await fetch(url);
+  if(!resp.ok) throw new Error(`Could not load template file: ${url} (${resp.status})`);
+  const buf = await resp.arrayBuffer();
+  templateBufferCache[key] = buf;
+  return buf;
+}
+
+/* ═══════════════════════════════════════════════════
+   DAY-PER-PAGE EXPORT — fills the single-day ILAW Lesson Plan template once per
+   selected day, each as its own copy with a page break between, combined into one
+   document. Every field name here maps 1:1 to the same content the weekly DLL
+   already generates (Learning Competency, Flow, etc.) — this reuses that data,
+   it doesn't generate anything new.
+   ═══════════════════════════════════════════════════ */
+const LP_FIELD_MAP = {
+  nameOfLesson:'07B4E820', learningArea:'3EC73997', designedBy:'347EBDE5', gradeSection:'0CC4CD16',
+  noOfSessions:'6B4E4239', references:'4F2EE826', aiDeclaration:'5DC43C19', termHeading:'6FC4D4E7',
+  'Learning Competency':'0EFB24A9', 'Learning Objectives':'7B2C1C60', 'Learner Context':'39ACCFED',
+  'Pre-Lesson':'0E8C5877', 'Flow':'133FFA4F', 'Learning Resources':'74155401',
+  'Opportunities for Integration':'490D2824', 'Formative Assessment':'402D88C4',
+  'Extended Learning Opportunities':'54E8016F', 'Reflections':'4103CDDC'
+};
+const LP_HEADER_KEYS = ['nameOfLesson','learningArea','designedBy','gradeSection','noOfSessions','references','aiDeclaration','termHeading'];
+
+/* Gives every paragraph in a cloned table copy a fresh, unique paraId (keyed by its
+   ORIGINAL id in this template), returning both the re-IDed XML and a lookup from
+   original->new id — needed because Word requires every paraId to be unique across
+   the WHOLE document, and this template gets duplicated once per selected day. */
+function cloneTableWithFreshIds(tableXml){
+  const idMap = {};
+  const cloned = tableXml.replace(/w14:paraId="([0-9A-F]+)"/g, (m, origId) => {
+    if(!idMap[origId]) idMap[origId] = nextExtraParaId();
+    return `w14:paraId="${idMap[origId]}"`;
+  });
+  return { cloned, idMap };
+}
+
+function buildDayPerPageDocument(xml, days, dayDataMap, headerInfo){
+  const tblMatch = xml.match(/<w:tbl>[^]*?<\/w:tbl>/);
+  if(!tblMatch) throw new Error('Lesson plan template table not found');
+  const originalTable = tblMatch[0];
+
+  let combined = '';
+  days.forEach((day, di) => {
+    const { cloned, idMap } = cloneTableWithFreshIds(originalTable);
+    let dayTbl = cloned;
+    const data = dayDataMap[day] || {};
+    const fill = (key, value) => {
+      const newId = idMap[LP_FIELD_MAP[key]];
+      if(newId) dayTbl = replaceParagraph(dayTbl, newId, value);
+    };
+    fill('termHeading', `${day} LESSON PLAN`);
+    fill('nameOfLesson', headerInfo.subject || '');
+    fill('learningArea', headerInfo.subject || '');
+    fill('designedBy', headerInfo.designedBy || '');
+    fill('gradeSection', headerInfo.gradeSection || '');
+    fill('noOfSessions', `1 session (${headerInfo.duration || ''})`);
+    fill('references', headerInfo.references || '');
+    fill('aiDeclaration', headerInfo.aiDeclaration || '');
+    Object.keys(LP_FIELD_MAP).forEach(key => {
+      if(LP_HEADER_KEYS.includes(key)) return;
+      fill(key, data[key] || '');
+    });
+
+    if(di > 0) combined += '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+    combined += dayTbl;
+  });
+
+  return xml.slice(0, tblMatch.index) + combined + xml.slice(tblMatch.index + tblMatch[0].length);
+}
+
+async function exportDayPerPage(){
+  const statusEl = document.getElementById('lpExportStatus');
+  if(typeof JSZip === 'undefined'){
+    statusEl.textContent = '⚠ The document library failed to load. Check your connection and reload.';
+    statusEl.className = 'status-msg error';
+    return;
+  }
+  const checkedDays = [...document.querySelectorAll('.lp-day-check:checked')].map(cb => cb.value);
+  if(!checkedDays.length){ statusEl.textContent = '⚠ Select at least one day to export.'; statusEl.className='status-msg error'; return; }
+  statusEl.textContent = 'Building document…'; statusEl.className='status-msg';
+  try{
+    const data = collectEditedData();
+    const headerInfo = {
+      subject: document.getElementById('subject').value.trim() || '[SUBJECT]',
+      designedBy: document.getElementById('preparedName').value.trim() || '[TEACHER NAME]',
+      gradeSection: document.getElementById('gradeSection').value.trim() || '[GRADE & SECTION]',
+      duration: document.getElementById('sessionDuration').value,
+      references: 'See Learning Resources per day below.',
+      aiDeclaration: 'Gemini AI was used to draft day-by-day instructional content based on teacher-specified topics, framework choices, and contextualization details. The teacher of record reviewed, edited, and finalized all content before use, per DO 3, s. 2026, Annex A.'
+    };
+    const zip = await JSZip.loadAsync(await loadTemplateBuffer('lpDayPerPage'));
+    let xml = await zip.file('word/document.xml').async('string');
+    xml = buildDayPerPageDocument(xml, checkedDays, data, headerInfo);
+    zip.file('word/document.xml', xml);
+    const blob = await zip.generateAsync({ type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `LP_${(headerInfo.subject||'lesson').replace(/\s+/g,'_')}_${checkedDays.length}days.docx`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    statusEl.textContent = '✓ Downloaded — one page per selected day.'; statusEl.className='status-msg ok';
+  }catch(err){
+    statusEl.textContent = '⚠ Export failed: ' + err.message; statusEl.className='status-msg error';
+  }
+}
+
+
+function base64ToArrayBuffer(base64){
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for(let i=0;i<binary.length;i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
+async function exportDLL(){
+  const statusEl = document.getElementById('exportStatus');
+  if(typeof JSZip === 'undefined'){
+    statusEl.textContent = '⚠ The document library failed to load (needed for .docx export). Check your internet connection, or your network/browser may be blocking cdnjs.cloudflare.com and cdn.jsdelivr.net. Try a different network, or reload the page.';
+    statusEl.className = 'status-msg error';
+    return;
+  }
+  statusEl.textContent = 'Building document…'; statusEl.className='status-msg';
+  try{
+    const data = collectEditedData();
+    const isFive = currentFormat==='five';
+    const templateKey = isFive ? 'five' : 'four';
+    const paraIdMap = isFive ? PARAID_MAP_5DAY : PARAID_MAP_4DAY;
+
+    const contentStandard = document.getElementById('contentStandard').value.trim();
+    const performanceStandard = document.getElementById('performanceStandard').value.trim();
+
+    const dateRangeText = formatDateRange();
+    const headerData = {
+      termHeading: getTermHeading(),
+      learningArea: document.getElementById('subject').value.trim() || '[LEARNING AREA]',
+      designedBy: document.getElementById('preparedName').value.trim() || '[TEACHER NAME]',
+      gradeSection: document.getElementById('gradeSection').value.trim() || '[GRADE & SECTION]',
+      noOfSessions: `${isFive?5:4} sessions (${document.getElementById('sessionDuration').value} each)${dateRangeText ? `, ${dateRangeText}` : ''}`,
+      references: 'See Learning Resources per day below.',
+      aiDeclaration: 'Gemini AI was used to draft day-by-day instructional content (Flow, Learning Objectives, and related fields) based on teacher-specified topics, framework choices, and contextualization details. The teacher of record reviewed, edited, and finalized all content before use, per DO 3, s. 2026, Annex A.'
+    };
+
+    // Content Standard / Performance Standard are inserted verbatim, exactly as typed —
+    // never passed through the AI — then Gemini's day-specific Learning Competency is
+    // appended after, matching this cell's own built-in guidance to include both.
+    const dayData = {};
+    for(const day of Object.keys(paraIdMap.days)){
+      dayData[day] = { ...(data[day]||{}) };
+      const parts = [];
+      if(contentStandard) parts.push(`**Content Standard:** ${contentStandard}`);
+      if(performanceStandard) parts.push(`**Performance Standard:** ${performanceStandard}`);
+      parts.push(`**Learning Competency:** ${(data[day]&&data[day]['Learning Competency'])||''}`);
+      dayData[day]['Learning Competency'] = parts.join('\n\n');
+    }
+
+    const boldIfPresent = (v) => v ? `**${v}**` : v;
+    const signatures = {
+      preparedName: boldIfPresent(document.getElementById('preparedName').value.trim()) || '**[TEACHER NAME]**',
+      preparedPos: document.getElementById('preparedPos').value.trim() || '[POSITION]',
+      checkedName: boldIfPresent(document.getElementById('checkedName').value.trim()) || '**NAME OF TEACHER**',
+      checkedPos: document.getElementById('checkedPos').value.trim() || 'Position',
+      approvedName: boldIfPresent(document.getElementById('approvedName').value.trim()), // left as-is (blank) if not provided — does NOT overwrite the template's own default
+      approvedPos: document.getElementById('approvedPos').value.trim()
+    };
+    // Only overwrite Approved by if the teacher actually filled it in — otherwise leave
+    // the template's own existing signatory untouched, matching the "preserve as-is" rule.
+    if(!signatures.approvedName) delete signatures.approvedName;
+    if(!signatures.approvedPos) delete signatures.approvedPos;
+
+    const zip = await JSZip.loadAsync(await loadTemplateBuffer(templateKey));
+    let xml = await zip.file('word/document.xml').async('string');
+    xml = fillDLLTemplate(xml, paraIdMap, headerData, dayData, signatures);
+    zip.file('word/document.xml', xml);
+    const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `DLL_${(document.getElementById('subject').value||'lesson').replace(/\s+/g,'_')}_Term${document.getElementById('term').value}_${(document.getElementById('startDate').value||'week')}.docx`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    statusEl.textContent = '✓ Downloaded — your actual template, filled in.'; statusEl.className='status-msg ok';
+  }catch(err){
+    statusEl.textContent = '⚠ Export failed: ' + err.message; statusEl.className='status-msg error';
+  }
+}
+
+// Back-to-top navigator — hidden until the user has scrolled down a bit,
+// then fades in; clicking (or Enter/Space, since it's a real button) scrolls
+// smoothly back to the top of the page.
+(function(){
+  const btn = document.getElementById('backToTop');
+  if(!btn) return;
+  const SHOW_AFTER_PX = 400;
+  let ticking = false;
+  function updateVisibility(){
+    btn.classList.toggle('show', window.scrollY > SHOW_AFTER_PX);
+    ticking = false;
+  }
+  window.addEventListener('scroll', () => {
+    if(!ticking){ window.requestAnimationFrame(updateVisibility); ticking = true; }
+  }, { passive: true });
+  updateVisibility();
+  btn.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+})();
+</script>
+
+<button id="backToTop" type="button" aria-label="Back to top" title="Back to top">↑</button>
+</body>
+</html>
