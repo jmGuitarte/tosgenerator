@@ -31,6 +31,18 @@ const ADMIN_FIREBASE_CONFIG = {
 // needing to touch this file or redeploy.)
 const ADMIN_GEMINI_WORKER_URL = "https://tos-gemini-proxy.snhs-ict.workers.dev";
 
+// Fallback list of Gemini models (comma-separated, in priority order). Both
+// apps rotate through this list automatically — on a 30-minute timer, and
+// immediately if a request actually hits a rate-limit/quota (429) error —
+// so a temporary quota limit on one model doesn't block generation entirely.
+// If AI generation ever fails for everyone at once, check
+// https://ai.google.dev/gemini-api/docs/deprecations — Google periodically
+// retires model names, which would need an update here.
+const ADMIN_GEMINI_MODEL_LIST = "gemini-2.5-flash,gemini-2.5-flash-lite,gemini-2.0-flash";
+
 // Optional — restrict Google sign-in to one email domain across all three
 // apps, e.g. "deped.gov.ph". Leave blank to allow any Google account.
+// Currently blank/unrestricted, matching the Firestore emailDomainOK() rule
+// (isSignedIn() with no domain check) — any signed-in account is accepted
+// both by the app and by the database.
 const ADMIN_ALLOWED_EMAIL_DOMAIN = "";
