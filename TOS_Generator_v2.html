@@ -2214,25 +2214,28 @@ function isItemWrittenForReview(slot, it){
   return true;
 }
 
+// Converts a plain-text field to HTML while preserving line breaks exactly as
+// typed — so if a teacher writes a scenario/context, then a blank line, then
+// the actual question, all within the same stem field, that spacing survives
+// into the rendered display instead of collapsing onto one line.
+function textWithBreaks(s){ return esc(s||'').replace(/\n/g, '<br>'); }
+
 function reviewItemBodyHtml(slot,it){
   if(slot.isPisa){
     return it.passage
-      ? `${esc(it.passage)}<br>` + (it.subItems||[]).map((sub,i)=>`${String.fromCharCode(97+i)}) ${esc(sub.text||'')} <span style="color:var(--muted);">(ans: ${esc(sub.answer||'—')})</span>`).join('<br>')
+      ? `${textWithBreaks(it.passage)}<br>` + (it.subItems||[]).map((sub,i)=>`${String.fromCharCode(97+i)}) ${esc(sub.text||'')} <span style="color:var(--muted);">(ans: ${esc(sub.answer||'—')})</span>`).join('<br>')
       : `<em style="color:var(--warn);">— not written —</em>`;
   }
   if(slot.isOE){
     return it.stem
-      ? `${esc(it.stem)}<br><span style="font-size:11px;color:var(--muted);">Rubric: ${esc(it.rubric||'—')}</span>`
+      ? `${textWithBreaks(it.stem)}<br><span style="font-size:11px;color:var(--muted);">Rubric: ${esc(it.rubric||'—')}</span>`
       : `<em style="color:var(--warn);">— not written —</em>`;
   }
   if(!it.stem) return `<em style="color:var(--warn);">— not written —</em>`;
-  // Scenario is optional context/passage the question is based on — shown above the
-  // question with a blank line separating them, matching how a printed test would read.
-  const scenarioBlock = (it.scenario && it.scenario.trim()) ? `${esc(it.scenario)}<br><br>` : '';
-  if(it.type==='tf') return `${scenarioBlock}${esc(it.stem)} <em>(True/False — answer: ${esc(it.tf||'—')})</em>`;
-  if(it.type==='matching') return `${scenarioBlock}${esc(it.stem)}<br>` + (it.pairs||[]).map(p=>`${esc(p.left)} ↔ ${esc(p.right)}`).join('<br>');
-  if(it.type==='open') return `${scenarioBlock}${esc(it.stem)}<br><span style="font-size:11px;color:var(--muted);">Rubric: ${esc(it.rubric||'—')}</span>`;
-  return `${scenarioBlock}${esc(it.stem)}<br>` +
+  if(it.type==='tf') return `${textWithBreaks(it.stem)} <em>(True/False — answer: ${esc(it.tf||'—')})</em>`;
+  if(it.type==='matching') return `${textWithBreaks(it.stem)}<br>` + (it.pairs||[]).map(p=>`${esc(p.left)} ↔ ${esc(p.right)}`).join('<br>');
+  if(it.type==='open') return `${textWithBreaks(it.stem)}<br><span style="font-size:11px;color:var(--muted);">Rubric: ${esc(it.rubric||'—')}</span>`;
+  return `${textWithBreaks(it.stem)}<br>` +
     ['A','B','C','D'].map(L => `${L}. ${esc(it['opt'+L]||'')}`).join('<br>') +
     `<br><em style="color:var(--muted);">(correct: ${esc(it.correct||'—')})</em>`;
 }
@@ -2985,11 +2988,7 @@ function makerItemHTML(slot){
         <button class="qb-type-tab ${type==='open'?'active':''}" onclick="setMakerType(${slot.num},'open')">Open-Ended</button>
       </div>
       <div class="field" style="margin-bottom:10px;">
-        <label>Scenario / Context <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0a080;">(optional — a short situation or passage the question is based on)</span></label>
-        <div class="grow-wrap" data-replicated-value="${esc(it.scenario||'')}"><textarea id="maker-scenario-${slot.num}" placeholder="e.g. A farmer wants to fence a rectangular garden plot..." oninput="this.parentNode.dataset.replicatedValue=this.value;saveMakerItem(${slot.num})">${esc(it.scenario||'')}</textarea></div>
-      </div>
-      <div class="field" style="margin-bottom:10px;">
-        <label>Question / Item Stem</label>
+        <label>Question / Item Stem <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0a080;">(if there's a scenario/context, write it first, then a blank line, then the question — that spacing is preserved when displayed)</span></label>
         <div class="grow-wrap" data-replicated-value="${esc(it.stem||'')}"><textarea id="maker-stem-${slot.num}" oninput="this.parentNode.dataset.replicatedValue=this.value;saveMakerItem(${slot.num})">${esc(it.stem||'')}</textarea></div>
       </div>
       <div id="maker-fields-${slot.num}">${makerTypeFieldsHTML(slot.num,type,it)}</div>`;
@@ -3408,8 +3407,6 @@ function saveMakerItem(num){
   } else {
     const stemEl=document.getElementById('maker-stem-'+num);
     it.stem=stemEl.value;
-    const scenarioEl=document.getElementById('maker-scenario-'+num);
-    if(scenarioEl) it.scenario=scenarioEl.value;
     const lessonEl=document.getElementById('maker-lesson-'+num);
     if(lessonEl) it.lesson=lessonEl.value;
     it.type=it.type||'mcq';
@@ -3469,7 +3466,6 @@ function downloadMakerTest(){
   slots.forEach(slot=>{
     const it=testItems[slot.num]||{};
     out+=`${slot.num}. `;
-    const scenarioText = (it.scenario && it.scenario.trim()) ? `${it.scenario.trim()}\n\n` : '';
     if(slot.isPisa){
       out+=`${it.passage||'[not written]'}\n`;
       (it.subItems||[]).forEach((s,i)=>{ out+=`   ${String.fromCharCode(97+i)}) ${s.text||''}\n`; });
@@ -3477,13 +3473,13 @@ function downloadMakerTest(){
     } else if(slot.isOE){
       out+=`${it.stem||'[not written]'}\n\n`;
     } else if(it.type==='tf'){
-      out+=`${scenarioText}${it.stem||'[not written]'} (True/False)\n\n`;
+      out+=`${it.stem||'[not written]'} (True/False)\n\n`;
     } else if(it.type==='matching'){
-      out+=`${scenarioText}${it.stem||'[not written]'}\n`+(it.pairs||[]).map(p=>`   ${p.left} ↔ ${p.right}`).join('\n')+'\n\n';
+      out+=`${it.stem||'[not written]'}\n`+(it.pairs||[]).map(p=>`   ${p.left} ↔ ${p.right}`).join('\n')+'\n\n';
     } else if(it.type==='open'){
-      out+=`${scenarioText}${it.stem||'[not written]'}\n\n`;
+      out+=`${it.stem||'[not written]'}\n\n`;
     } else {
-      out+=`${scenarioText}${it.stem||'[not written]'}\nA. ${it.optA||''}\nB. ${it.optB||''}\nC. ${it.optC||''}\nD. ${it.optD||''}\n\n`;
+      out+=`${it.stem||'[not written]'}\nA. ${it.optA||''}\nB. ${it.optB||''}\nC. ${it.optC||''}\nD. ${it.optD||''}\n\n`;
     }
   });
   const blob=new Blob([out],{type:'text/plain'});
