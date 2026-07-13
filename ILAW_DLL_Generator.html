@@ -76,9 +76,6 @@ details.card-collapse>summary::-webkit-details-marker{display:none;}
 .btn-gold{background:var(--gold);border-color:var(--gold);color:#e0cc9a;}
 .btn-sm{padding:7px 13px;font-size:12.5px;}
 .btn-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px;}
-.format-toggle{display:flex;gap:10px;}
-.format-chip{flex:1;padding:12px 14px;border:1.5px solid var(--line);border-radius:9px;cursor:pointer;text-align:center;font-size:13px;font-weight:600;color:var(--muted);}
-.format-chip.active{background:var(--maroon-deep);color:var(--bluewhite);border-color:var(--rose);}
 .focus-entry{border:1px solid rgba(255,255,255,.7);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:rgba(255,255,255,.55);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
 .focus-entry-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
 .focus-entry-head span{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
@@ -122,6 +119,7 @@ a{color:var(--rose);}
     </div>
     <div style="display:flex;gap:8px;flex-shrink:0;">
       <a href="./index.html" title="Back to Teacher Tools" style="display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);color:#fff;width:42px;height:42px;border-radius:50%;font-size:18px;cursor:pointer;text-decoration:none;">🏠</a>
+      <button onclick="startNewDLL()" title="Start a new DLL / Lesson Plan" style="background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);color:#fff;width:42px;height:42px;border-radius:50%;font-size:19px;cursor:pointer;">🆕</button>
       <button onclick="openSettings()" title="Settings" style="background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);color:#fff;width:42px;height:42px;border-radius:50%;font-size:19px;cursor:pointer;">⚙️</button>
     </div>
   </div>
@@ -162,7 +160,7 @@ a{color:var(--rose);}
   <details class="card-collapse" id="mergeDraftsCard" style="display:none;">
     <summary>🔀 Merge Two Weekly Drafts <span style="font-weight:400;font-size:12px;color:var(--muted);">— combine specific days from two saved drafts into one export</span></summary>
     <div class="collapse-body">
-      <p class="card-desc">Pick two saved cloud drafts, then for each day of the merged export, choose any lesson/competency from either draft — not limited to that same day. The result exports using the current DLL Format/template selected above.</p>
+      <p class="card-desc">Pick two saved cloud drafts, then for each day of the merged export, choose any lesson/competency from either draft — not limited to that same day.</p>
       <div class="grid2">
         <div class="field"><label>Draft A</label><select id="mergeDraftA" onchange="renderMergeDayPicker()"><option value="">— choose a saved draft —</option></select></div>
         <div class="field"><label>Draft B</label><select id="mergeDraftB" onchange="renderMergeDayPicker()"><option value="">— choose a saved draft —</option></select></div>
@@ -220,16 +218,14 @@ a{color:var(--rose);}
       </div>
     </div>
     <div class="grid2">
-      <div class="field"><label>Week Start Date</label><input type="date" id="startDate"></div>
-      <div class="field"><label>Week End Date</label><input type="date" id="endDate"></div>
+      <div class="field"><label>Week Start Date</label><input type="date" id="startDate" onchange="onDateRangeChanged()"></div>
+      <div class="field"><label>Week End Date</label><input type="date" id="endDate" onchange="onDateRangeChanged()"></div>
     </div>
     <div class="field">
-      <label>DLL Format</label>
-      <div class="format-toggle">
-        <div class="format-chip active" id="fmt-five" onclick="setFormat('five')">5-Day (Monday–Friday)</div>
-        <div class="format-chip" id="fmt-four" onclick="setFormat('four')">4-Day (Monday–Thursday)</div>
-      </div>
+      <label>Holiday(s) <span class="hint">— check any day that's a holiday within your selected range; it's skipped entirely (no box, no generated content, left blank on export)</span></label>
+      <div id="holidayCheckboxRow" style="display:flex;gap:16px;flex-wrap:wrap;font-size:13px;"></div>
     </div>
+    <p class="hint" id="formatReadout" style="display:block;margin-bottom:14px;"></p>
     <div class="grid2">
       <div class="field">
         <label>Session Duration <span class="hint">— per session; shapes how much depth/pacing fits in the Flow</span></label>
@@ -346,17 +342,90 @@ const ROW_LABELS = [
   'Extended Learning Opportunities','Reflections'
 ];
 const DAYS_FIVE = ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY'];
-const DAYS_FOUR = ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY'];
+const WEEKDAY_ORDER = ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY'];
 const AVAILABLE_FRAMEWORKS = "4A's (Activity–Analysis–Abstraction–Application), 4I's (Introduction–Interaction–Integration–Independent Practice), 4C's (Connect–Construct–Confirm–Commit), STAR (Situation–Task–Action–Result), or another recognized instructional framework if it fits the day's specific content better";
 
-let currentFormat = 'five';
 let dllData = {}; // { DAY: { 'Learning Competency': '...', ... } }
+let holidayDays = new Set(); // weekday names (e.g. 'WEDNESDAY') marked as a holiday within the selected range
 
-function setFormat(fmt){
-  currentFormat = fmt;
-  document.getElementById('fmt-five').classList.toggle('active', fmt==='five');
-  document.getElementById('fmt-four').classList.toggle('active', fmt==='four');
-  renderFocusEntries(); // day checkboxes depend on the day count, which just changed
+/* Reads Week Start/End Date and returns which weekdays (Monday–Friday only —
+   weekends are never part of the DLL) actually fall within that range, in
+   canonical Monday→Friday order regardless of which day the range starts on.
+   This is what "Tuesday to Friday" support means: the range simply doesn't
+   include Monday, so Monday never appears anywhere in the form or export.
+   Falls back to a full Monday–Friday week if no dates are set yet, so the form
+   isn't empty before a teacher gets to the date fields. */
+function getDaysInRange(){
+  const start = document.getElementById('startDate').value;
+  const end = document.getElementById('endDate').value;
+  if(!start || !end) return [...DAYS_FIVE];
+  const JS_WEEKDAY = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
+  const startD = new Date(start+'T00:00:00');
+  const endD = new Date(end+'T00:00:00');
+  if(isNaN(startD) || isNaN(endD) || endD < startD) return [...DAYS_FIVE];
+  const seen = new Set();
+  const cur = new Date(startD);
+  let guard = 0;
+  while(cur <= endD && guard < 366){
+    const wd = JS_WEEKDAY[cur.getDay()];
+    if(wd!=='SUNDAY' && wd!=='SATURDAY') seen.add(wd);
+    cur.setDate(cur.getDate()+1);
+    guard++;
+  }
+  const inRange = WEEKDAY_ORDER.filter(d => seen.has(d));
+  return inRange.length ? inRange : [...DAYS_FIVE];
+}
+
+/* The days that actually get a box, get generated for, and get filled on export —
+   everything in range MINUS anything checked as a holiday. */
+function getActiveDays(){
+  const inRange = getDaysInRange();
+  const active = inRange.filter(d => !holidayDays.has(d));
+  return active;
+}
+
+function renderHolidayCheckboxes(){
+  const el = document.getElementById('holidayCheckboxRow');
+  if(!el) return;
+  const inRange = getDaysInRange();
+  el.innerHTML = inRange.map(d => `<label style="display:flex;align-items:center;gap:5px;font-weight:400;"><input type="checkbox" ${holidayDays.has(d)?'checked':''} onchange="toggleHoliday('${d}',this.checked)"> ${d.charAt(0)+d.slice(1).toLowerCase()}</label>`).join('');
+}
+
+function toggleHoliday(day, checked){
+  if(checked) holidayDays.add(day); else holidayDays.delete(day);
+  refreshActiveDayDependents();
+}
+
+function renderFormatReadout(){
+  const el = document.getElementById('formatReadout');
+  if(!el) return;
+  const active = getActiveDays();
+  const dayLabel = d => d.charAt(0)+d.slice(1).toLowerCase();
+  el.textContent = active.length
+    ? `Active days: ${active.map(dayLabel).join(', ')}.`
+    : `⚠ Every day in range is marked as a holiday — nothing will be generated. Uncheck at least one day above.`;
+}
+
+/* Called whenever the date range or a holiday checkbox changes — keeps every
+   day-dependent part of the form (holiday checkboxes themselves, the format
+   readout, Weekly Focus day pins, the Learning Objectives editor, the Review &
+   Edit day editors, and the Day-per-Page checklist) in sync with whichever days
+   are actually active right now. */
+function refreshActiveDayDependents(){
+  renderHolidayCheckboxes();
+  renderFormatReadout();
+  renderFocusEntries();
+  renderObjectivesEditor();
+  renderDayEditors();
+  renderLpDayChecklist();
+}
+
+function onDateRangeChanged(){
+  // A day that's no longer even in range shouldn't stay marked as a holiday —
+  // keeps the Set from silently accumulating stale entries as dates change.
+  const inRange = new Set(getDaysInRange());
+  holidayDays = new Set([...holidayDays].filter(d => inRange.has(d)));
+  refreshActiveDayDependents();
 }
 
 /* Weekly Focus is a LIST, not a single field: most weeks only need one entry (applies
@@ -365,12 +434,12 @@ function setFormat(fmt){
 let focusEntries = [{ text: '', days: [] }]; // days: [] means "applies to all days"
 let preGeneratedObjectives = {}; // {DAY: "objectives text"} — set via generateObjectives(), locks in Learning Objectives before the main DLL generation
 
-function currentFocusDays(){ return currentFormat==='five' ? DAYS_FIVE : DAYS_FOUR; }
+function currentFocusDays(){ return getActiveDays(); }
 
 function renderLpDayChecklist(){
   const el = document.getElementById('lpDayChecklist');
   if(!el) return;
-  const days = currentFormat==='five' ? DAYS_FIVE : DAYS_FOUR;
+  const days = getActiveDays();
   el.innerHTML = days.map(d => `<label style="display:flex;align-items:center;gap:5px;font-weight:400;"><input type="checkbox" class="lp-day-check" value="${d}" checked> ${d.charAt(0)+d.slice(1).toLowerCase()}</label>`).join('');
 }
 
@@ -415,6 +484,8 @@ const SHARED_API_KEY_KEY = 'shared_gemini_api_key_personal'; // shared with the 
 let GEMINI_API_KEY_PERSONAL = '';
 
 document.addEventListener('DOMContentLoaded', () => {
+  renderHolidayCheckboxes();
+  renderFormatReadout();
   renderFocusEntries();
   GEMINI_API_KEY_PERSONAL = localStorage.getItem(SHARED_API_KEY_KEY) || '';
 });
@@ -516,7 +587,7 @@ function collectILAWState(){
   fieldIds.forEach(id => { const el = document.getElementById(id); if(el) fields[id] = el.value; });
   return {
     fields,
-    currentFormat,
+    holidayDays: [...holidayDays],
     hasMorningAfternoon: document.getElementById('hasMorningAfternoon').checked,
     focusEntries: JSON.parse(JSON.stringify(focusEntries)),
     preGeneratedObjectives: JSON.parse(JSON.stringify(preGeneratedObjectives)),
@@ -527,7 +598,8 @@ function collectILAWState(){
 function applyILAWState(state){
   if(!state) return;
   Object.entries(state.fields||{}).forEach(([id, val]) => { const el = document.getElementById(id); if(el) el.value = val; });
-  setFormat(state.currentFormat || 'five');
+  holidayDays = new Set(state.holidayDays || []);
+  refreshActiveDayDependents();
   document.getElementById('hasMorningAfternoon').checked = !!state.hasMorningAfternoon;
   focusEntries = (state.focusEntries && state.focusEntries.length) ? state.focusEntries : [{ text:'', days:[] }];
   renderFocusEntries();
@@ -542,6 +614,51 @@ function applyILAWState(state){
     document.getElementById('lpExportCard').style.display = 'block';
     renderLpDayChecklist();
   }
+}
+
+/* Resets the whole form back to a blank slate — everything a page refresh would
+   clear, but without actually reloading the page (so sign-in, Settings, and the
+   Cloud Drafts list all stay exactly as they were). */
+function startNewDLL(){
+  const hasContent = Object.keys(dllData).some(d => dllData[d] && Object.values(dllData[d]).some(v=>v&&v.trim && v.trim()));
+  const hasText = document.getElementById('school').value.trim() || document.getElementById('subject').value.trim() || focusEntries.some(e=>e.text.trim());
+  if((hasContent || hasText) && !confirm('Start a new DLL? Anything unsaved on the current one will be lost — save it to the cloud first if you want to keep it.')) return;
+
+  const textFieldIds = ['school','division','subject','gradeSection','startDate','endDate',
+    'contentStandard','performanceStandard','contextDetails','referenceMaterial',
+    'timeBreakdown','preparedName','preparedPos','checkedName','checkedPos','approvedName','approvedPos'];
+  textFieldIds.forEach(id => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.value = '';
+    const wrap = el.closest('.grow-wrap');
+    if(wrap) wrap.dataset.replicatedValue = ''; // shrinks the auto-resizing textarea back down
+  });
+  document.getElementById('term').value = '1';
+  document.getElementById('sessionDuration').value = '1 hour';
+  document.getElementById('hasMorningAfternoon').checked = false;
+
+  holidayDays = new Set();
+  refreshActiveDayDependents();
+  focusEntries = [{ text: '', days: [] }];
+  renderFocusEntries();
+  preGeneratedObjectives = {};
+  renderObjectivesEditor();
+  dllData = {};
+  document.getElementById('dayEditors').innerHTML = '';
+  document.getElementById('previewCard').style.display = 'none';
+  document.getElementById('exportCard').style.display = 'none';
+  document.getElementById('lpExportCard').style.display = 'none';
+
+  currentCloudDraftId = null;
+  updateLoadedDraftBanner(null);
+
+  const genStatus=document.getElementById('genStatus'); if(genStatus){ genStatus.textContent=''; genStatus.className='status-msg'; }
+  const genObjStatus=document.getElementById('genObjStatus'); if(genObjStatus){ genObjStatus.textContent=''; genObjStatus.className='status-msg'; }
+  const exportStatus=document.getElementById('exportStatus'); if(exportStatus){ exportStatus.textContent=''; exportStatus.className='status-msg'; }
+  const lpExportStatus=document.getElementById('lpExportStatus'); if(lpExportStatus){ lpExportStatus.textContent=''; lpExportStatus.className='status-msg'; }
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 async function saveCurrentDraftToCloud(){
@@ -686,13 +803,16 @@ async function exportMergedDLL(){
 
   const previousDllData = dllData;
   dllData = mergedDllData;
+  renderDayEditors(); // refresh the DOM so collectEditedData() actually picks up the merged content
   try{
-    await exportDLL();
+    const mergedActiveDays = DAYS_FIVE.filter(d => mergedDllData[d]);
+    await exportDLL(mergedActiveDays);
     statusEl.textContent = '✓ Merged and downloaded.'; statusEl.className='status-msg ok';
   }catch(err){
     statusEl.textContent = '⚠ ' + err.message; statusEl.className='status-msg error';
   }finally{
     dllData = previousDllData; // restore the current session's own data, unaffected by the merge
+    renderDayEditors(); // and restore its editors in the DOM too
   }
 }
 
@@ -869,7 +989,7 @@ function gatherPromptContext(){
   const gradeSection = document.getElementById('gradeSection').value.trim();
   const termLabel = `Term ${document.getElementById('term').value}`;
   const dateRange = formatDateRange();
-  const days = currentFormat==='five' ? DAYS_FIVE : DAYS_FOUR;
+  const days = getActiveDays();
   const activeFocusEntries = focusEntries.filter(e => e.text.trim());
   let focusSection;
   if(activeFocusEntries.length <= 1){
@@ -1012,6 +1132,7 @@ async function generateObjectives(){
   const statusEl = document.getElementById('genObjStatus');
   const hasFocusText = focusEntries.some(e => e.text.trim());
   if(!hasFocusText){ statusEl.textContent = '⚠ Fill in at least one Weekly Focus entry first.'; statusEl.className='status-msg error'; return; }
+  if(!getActiveDays().length){ statusEl.textContent = '⚠ Every day in range is marked as a holiday — uncheck at least one.'; statusEl.className='status-msg error'; return; }
   btn.disabled = true;
   statusEl.textContent = '✨ Drafting objectives…'; statusEl.className='status-msg';
   try{
@@ -1029,7 +1150,7 @@ async function generateObjectives(){
 function renderObjectivesEditor(){
   const container = document.getElementById('objectivesEditor');
   if(!container) return;
-  const days = currentFormat==='five' ? DAYS_FIVE : DAYS_FOUR;
+  const days = getActiveDays();
   const hasAny = days.some(d => preGeneratedObjectives[d] && preGeneratedObjectives[d].trim());
   if(!hasAny){ container.innerHTML=''; return; }
   container.innerHTML = days.map(day => {
@@ -1046,6 +1167,7 @@ async function generateDLL(){
   const statusEl = document.getElementById('genStatus');
   const hasFocusText = focusEntries.some(e => e.text.trim());
   if(!hasFocusText){ statusEl.textContent = '⚠ Fill in at least one Weekly Focus / Learning Competency entry first.'; statusEl.className='status-msg error'; return; }
+  if(!getActiveDays().length){ statusEl.textContent = '⚠ Every day in range is marked as a holiday — uncheck at least one.'; statusEl.className='status-msg error'; return; }
   btn.disabled = true;
   statusEl.textContent = '✨ Generating… this may take a moment.'; statusEl.className='status-msg';
   try{
@@ -1074,7 +1196,7 @@ async function generateDLL(){
 }
 
 function renderDayEditors(){
-  const days = currentFormat==='five' ? DAYS_FIVE : DAYS_FOUR;
+  const days = getActiveDays();
   const container = document.getElementById('dayEditors');
   container.innerHTML = days.map(day => {
     const dayContent = dllData[day] || {};
@@ -1103,12 +1225,12 @@ function collectEditedData(){
 
 
 /* ═══════════════════════════════════════════════════
-   TEMPLATE-BASED EXPORT — fills your actual uploaded ILAW DLL templates
-   (both the 4-day and 5-day .docx files) directly, cell by cell, by their
-   exact w14:paraId — the same precise technique used when this template was
-   edited manually earlier. The table structure, borders, fonts, and every
-   built-in guidance label are never touched; only the blank content cells
-   get filled in. Nothing is built from scratch.
+   TEMPLATE-BASED EXPORT — fills your actual uploaded ILAW DLL template
+   directly, cell by cell, by their exact w14:paraId — the same precise
+   technique used when this template was edited manually earlier. The table
+   structure, borders, fonts, and every built-in guidance label are never
+   touched; only the blank content cells get filled in. Nothing is built
+   from scratch.
    ═══════════════════════════════════════════════════ */
 // This is the EXACT logic that will be embedded in the browser app (JSZip handles the
 // zip I/O there; here we test against the already-unpacked document.xml directly).
@@ -1211,14 +1333,12 @@ function fillDLLTemplate(xml, paraIdMap, headerData, dayData, signatures){
 
 
 const PARAID_MAP_5DAY = {"header": {"nameOfLesson": "07B4E820", "learningArea": "3EC73997", "designedBy": "347EBDE5", "gradeSection": "0CC4CD16", "noOfSessions": "6B4E4239", "references": "4F2EE826", "aiDeclaration": "5DC43C19", "termHeading": "6FC4D4E7"}, "days": {"MONDAY": {"Learning Competency": "45557F0E", "Learning Objectives": "34264255", "Learner Context": "6CE29AA0", "Pre-Lesson": "533C62D3", "Flow": "03E41165", "Learning Resources": "7DC4378E", "Opportunities for Integration": "43CA5743", "Formative Assessment": "43CBDFA2", "Extended Learning Opportunities": "4E3B4ADA", "Reflections": "5DD90635"}, "TUESDAY": {"Learning Competency": "7BF8036A", "Learning Objectives": "3ACB906B", "Learner Context": "4C52E356", "Pre-Lesson": "4EA81C88", "Flow": "5F7C0231", "Learning Resources": "6B9430CE", "Opportunities for Integration": "44827D15", "Formative Assessment": "7F4F25C9", "Extended Learning Opportunities": "53B369F5", "Reflections": "69D01663"}, "WEDNESDAY": {"Learning Competency": "74A7F6B6", "Learning Objectives": "2E703509", "Learner Context": "22E833C9", "Pre-Lesson": "225B6C1E", "Flow": "336CFBFA", "Learning Resources": "2F21302B", "Opportunities for Integration": "5D055D01", "Formative Assessment": "1A698B5B", "Extended Learning Opportunities": "24F4B0E6", "Reflections": "6EF7CCD2"}, "THURSDAY": {"Learning Competency": "6AB09209", "Learning Objectives": "21AF5DC8", "Learner Context": "41175BD1", "Pre-Lesson": "284F8527", "Flow": "770B680E", "Learning Resources": "2741B9AA", "Opportunities for Integration": "31CDC90E", "Formative Assessment": "5E13D4EF", "Extended Learning Opportunities": "5A3339AD", "Reflections": "337993F8"}, "FRIDAY": {"Learning Competency": "12DF4F18", "Learning Objectives": "7B2C1C60", "Learner Context": "39ACCFED", "Pre-Lesson": "0E8C5877", "Flow": "133FFA4F", "Learning Resources": "74155401", "Opportunities for Integration": "490D2824", "Formative Assessment": "402D88C4", "Extended Learning Opportunities": "54E8016F", "Reflections": "4103CDDC"}}, "signatures": {"preparedName": "43142195", "preparedPos": "0FAFA9F8", "checkedName": "76592066", "checkedPos": "61184378", "approvedName": "543CF000", "approvedPos": "7AE12B28"}};
-const PARAID_MAP_4DAY = {"header": {"nameOfLesson": "07B4E820", "learningArea": "3EC73997", "designedBy": "347EBDE5", "gradeSection": "0CC4CD16", "noOfSessions": "6B4E4239", "references": "4F2EE826", "aiDeclaration": "5DC43C19", "termHeading": "6FC4D4E7"}, "days": {"MONDAY": {"Learning Competency": "3DAB6042", "Learning Objectives": "5A4DCC45", "Learner Context": "1712F7C5", "Pre-Lesson": "54CBD50A", "Flow": "5BBBF216", "Learning Resources": "1B7B21E3", "Opportunities for Integration": "51B9B0A6", "Formative Assessment": "784A76B0", "Extended Learning Opportunities": "37CAD21D", "Reflections": "135F30F7"}, "TUESDAY": {"Learning Competency": "72988D2E", "Learning Objectives": "75A251FF", "Learner Context": "4DB7F564", "Pre-Lesson": "2AB8BEAB", "Flow": "54432303", "Learning Resources": "5DCFAF3F", "Opportunities for Integration": "5BBAAD5D", "Formative Assessment": "5BB83FF0", "Extended Learning Opportunities": "7AEB8463", "Reflections": "45E62BB4"}, "WEDNESDAY": {"Learning Competency": "616D094E", "Learning Objectives": "6F30A928", "Learner Context": "254DD958", "Pre-Lesson": "0C777E64", "Flow": "2EA30EF2", "Learning Resources": "0382DD0E", "Opportunities for Integration": "2399B98E", "Formative Assessment": "4679B9B9", "Extended Learning Opportunities": "3842D2B6", "Reflections": "2A27662B"}, "THURSDAY": {"Learning Competency": "2F0AEF3F", "Learning Objectives": "7B2C1C60", "Learner Context": "39ACCFED", "Pre-Lesson": "0E8C5877", "Flow": "133FFA4F", "Learning Resources": "74155401", "Opportunities for Integration": "490D2824", "Formative Assessment": "402D88C4", "Extended Learning Opportunities": "54E8016F", "Reflections": "4103CDDC"}}, "signatures": {"preparedName": "43142195", "preparedPos": "0FAFA9F8", "checkedName": "76592066", "checkedPos": "61184378", "approvedName": "543CF000", "approvedPos": "7AE12B28"}};
 
 // Templates are stored as separate .docx files (see /templates folder) and
 // fetched on demand — keeps this page lightweight instead of embedding
 // megabytes of base64 for every visitor, since this is hosted on GitHub Pages.
 const TEMPLATE_FILES = {
   five: 'templates/template-5day.docx',
-  four: 'templates/template-4day.docx',
   lpDayPerPage: 'templates/template-lp-daypage.docx'
 };
 const templateBufferCache = {};
@@ -1341,7 +1461,7 @@ function base64ToArrayBuffer(base64){
   return bytes.buffer;
 }
 
-async function exportDLL(){
+async function exportDLL(overrideActiveDays){
   const statusEl = document.getElementById('exportStatus');
   if(typeof JSZip === 'undefined'){
     statusEl.textContent = '⚠ The document library failed to load (needed for .docx export). Check your internet connection, or your network/browser may be blocking cdnjs.cloudflare.com and cdn.jsdelivr.net. Try a different network, or reload the page.';
@@ -1351,9 +1471,16 @@ async function exportDLL(){
   statusEl.textContent = 'Building document…'; statusEl.className='status-msg';
   try{
     const data = collectEditedData();
-    const isFive = currentFormat==='five';
-    const templateKey = isFive ? 'five' : 'four';
-    const paraIdMap = isFive ? PARAID_MAP_5DAY : PARAID_MAP_4DAY;
+    // Always the 5-Day template: its Monday–Friday column headers are printed as
+    // static text in the .docx itself, not editable per-cell, and they line up
+    // literally with these paraId keys (MONDAY column = the MONDAY entries, etc).
+    // A shorter or non-Monday-starting range (e.g. Tuesday–Friday) still just fills
+    // the literally-correct columns and leaves the rest blank — never repurposes a
+    // "Monday"-labeled column to actually hold Tuesday's content, which would
+    // mislabel the printed document even though the data itself was correct.
+    const templateKey = 'five';
+    const paraIdMap = PARAID_MAP_5DAY;
+    const activeDays = overrideActiveDays || getActiveDays();
 
     const contentStandard = document.getElementById('contentStandard').value.trim();
     const performanceStandard = document.getElementById('performanceStandard').value.trim();
@@ -1364,7 +1491,7 @@ async function exportDLL(){
       learningArea: document.getElementById('subject').value.trim() || '[LEARNING AREA]',
       designedBy: document.getElementById('preparedName').value.trim() || '[TEACHER NAME]',
       gradeSection: document.getElementById('gradeSection').value.trim() || '[GRADE & SECTION]',
-      noOfSessions: `${isFive?5:4} sessions (${document.getElementById('sessionDuration').value} each)${dateRangeText ? `, ${dateRangeText}` : ''}`,
+      noOfSessions: `${activeDays.length} session${activeDays.length===1?'':'s'} (${document.getElementById('sessionDuration').value} each)${dateRangeText ? `, ${dateRangeText}` : ''}`,
       references: 'See Learning Resources per day below.',
       aiDeclaration: 'Gemini AI was used to draft day-by-day instructional content (Flow, Learning Objectives, and related fields) based on teacher-specified topics, framework choices, and contextualization details. The teacher of record reviewed, edited, and finalized all content before use, per DO 3, s. 2026, Annex A.'
     };
@@ -1372,14 +1499,19 @@ async function exportDLL(){
     // Content Standard / Performance Standard are inserted verbatim, exactly as typed —
     // never passed through the AI — then Gemini's day-specific Learning Competency is
     // appended after, matching this cell's own built-in guidance to include both.
+    // Any weekday not in activeDays (out of the selected range, or checked as a
+    // holiday) gets every one of its cells left blank — the column header (e.g.
+    // "Wednesday") still prints, but with nothing filled in underneath it.
     const dayData = {};
-    for(const day of Object.keys(paraIdMap.days)){
-      dayData[day] = { ...(data[day]||{}) };
+    for(const dayKey of Object.keys(paraIdMap.days)){
+      if(!activeDays.includes(dayKey)){ dayData[dayKey] = {}; continue; }
+      const sourceContent = data[dayKey] || {};
+      dayData[dayKey] = { ...sourceContent };
       const parts = [];
       if(contentStandard) parts.push(`**Content Standard:** ${contentStandard}`);
       if(performanceStandard) parts.push(`**Performance Standard:** ${performanceStandard}`);
-      parts.push(`**Learning Competency:** ${(data[day]&&data[day]['Learning Competency'])||''}`);
-      dayData[day]['Learning Competency'] = parts.join('\n\n');
+      parts.push(`**Learning Competency:** ${sourceContent['Learning Competency']||''}`);
+      dayData[dayKey]['Learning Competency'] = parts.join('\n\n');
     }
 
     const boldIfPresent = (v) => v ? `**${v}**` : v;
