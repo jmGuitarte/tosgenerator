@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SNHS Teacher Tools</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="config.js"></script>
+<style>
+:root{
+  --maroon-deep:#080726; --maroon-mid:#14123f; --gold:#b8863f; --paper:#eef3f8; --paper-deep:#e2eaf3;
+  --line:rgba(30,55,90,.14); --ink:#1e2a3a; --warn:#b0472e; --good:#2e7d4f;
+  --rose:#080726; --muted:#5a6b80; --bluewhite:#e8f0fb;
+  --shadow:0 1px 2px rgba(20,40,70,.06),0 10px 30px -12px rgba(20,40,70,.14);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{
+  background:linear-gradient(160deg,#f3f7fb 0%,#e9f0f7 40%,#e4edf6 75%,#eaf0f9 100%);
+  color:var(--ink);font-family:'Inter',sans-serif;font-size:15px;line-height:1.55;
+  min-height:100vh;display:flex;flex-direction:column;position:relative;overflow-x:hidden;
+}
+body::before,body::after{
+  content:"";position:fixed;border-radius:50%;filter:blur(80px);z-index:0;pointer-events:none;
+}
+body::before{width:440px;height:440px;background:rgba(120,160,210,.25);top:-140px;left:-120px;}
+body::after{width:500px;height:500px;background:rgba(90,130,190,.18);bottom:-180px;right:-140px;}
+.wrap{max-width:920px;margin:0 auto;padding:0 24px;width:100%;position:relative;z-index:1;}
+
+header{padding:64px 0 40px;text-align:center;}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:14px;}
+h1{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:clamp(30px,5vw,44px);color:var(--rose);letter-spacing:-.01em;line-height:1.15;}
+header p{margin-top:14px;color:var(--muted);font-size:16px;max-width:520px;margin-left:auto;margin-right:auto;}
+
+main{flex:1;padding-bottom:80px;position:relative;z-index:1;}
+
+/* ── Frosted glass: translucent + blurred backdrop + soft inner highlight border,
+   so panels read as glass sitting over the color rather than flat opaque cards. ── */
+#signedOutView{max-width:420px;margin:0 auto;background:rgba(255,255,255,.6);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.7);border-radius:16px;padding:32px 30px;box-shadow:var(--shadow);text-align:center;}
+#signedOutView p{color:var(--muted);font-size:14px;margin-bottom:20px;}
+.btn{
+  display:inline-flex;align-items:center;gap:8px;padding:12px 22px;border-radius:10px;border:1.5px solid var(--maroon-deep);
+  background:var(--maroon-deep);color:var(--bluewhite);font-family:'Inter',sans-serif;font-weight:600;font-size:14px;cursor:pointer;
+  transition:.15s;text-decoration:none;
+}
+.btn:hover{background:var(--maroon-mid);transform:translateY(-1px);}
+.btn-outline{background:rgba(255,255,255,.5);color:var(--maroon-deep);}
+.btn-outline:hover{background:rgba(255,255,255,.8);}
+#authErr{margin-top:14px;font-size:12.5px;color:var(--warn);display:none;}
+
+#signedInBar{display:none;max-width:920px;margin:0 auto 36px;display:flex;justify-content:space-between;align-items:center;
+  background:rgba(255,255,255,.6);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.7);border-radius:12px;padding:12px 18px;box-shadow:var(--shadow);}
+#signedInBar span{font-size:13px;color:var(--muted);}
+#signedInBar strong{color:var(--ink);}
+
+/* ── Tool cards ── */
+#toolGrid{display:none;grid-template-columns:1fr 1fr;gap:22px;margin-top:8px;}
+@media(max-width:700px){#toolGrid{grid-template-columns:1fr;}}
+.tool-card{
+  background:rgba(255,255,255,.55);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border:1px solid rgba(255,255,255,.7);border-radius:16px;padding:30px 28px;box-shadow:var(--shadow);
+  display:flex;flex-direction:column;transition:.18s;
+}
+.tool-card:hover{transform:translateY(-3px);background:rgba(255,255,255,.78);border-color:rgba(120,160,210,.35);box-shadow:0 1px 2px rgba(20,40,70,.06),0 20px 40px -16px rgba(20,40,70,.2);}
+.tool-icon{font-size:30px;margin-bottom:16px;}
+.tool-card h2{font-family:'Space Grotesk',sans-serif;font-size:21px;color:var(--rose);margin-bottom:10px;}
+.tool-card p{color:var(--muted);font-size:13.5px;line-height:1.6;flex:1;margin-bottom:20px;}
+.tool-card .btn{align-self:flex-start;}
+.tool-tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--gold);background:var(--paper-deep);border-radius:5px;padding:3px 8px;margin-bottom:12px;}
+
+footer{text-align:center;padding:28px 0;font-size:12px;color:rgba(90,107,128,.7);}
+</style>
+</head>
+<body>
+
+<header class="wrap">
+  <div class="eyebrow">Sicayab National High School</div>
+  <h1>Teacher Tools</h1>
+  <p>One sign-in for both — build your Table of Specifications, or draft a full ILAW-format Daily Lesson Log.</p>
+</header>
+
+<main class="wrap">
+
+  <div id="signedOutView">
+    <p>Sign in with Google to open either tool below.</p>
+    <button class="btn" onclick="signIn()">Sign in with Google</button>
+    <div id="authErr"></div>
+  </div>
+
+  <div id="signedInBar">
+    <span>Signed in as <strong id="userEmailLabel"></strong></span>
+    <button class="btn btn-outline" onclick="signOutUser()">Sign Out</button>
+  </div>
+
+  <div id="toolGrid">
+    <div class="tool-card">
+      <div class="tool-icon">📋</div>
+      <div class="tool-tag">Assessment</div>
+      <h2>TOS Generator</h2>
+      <p>Build a Table of Specifications from your competencies, write test items with AI assistance, run item analysis on ZipGrade results, and route everything through department head review.</p>
+      <a class="btn" href="./TOS_Generator_v2.html">Open TOS Generator →</a>
+    </div>
+    <div class="tool-card">
+      <div class="tool-icon">📘</div>
+      <div class="tool-tag">Lesson Planning</div>
+      <h2>ILAW DLL Generator</h2>
+      <p>Draft a full week's Daily Lesson Log in the ILAW format — AI-assisted Flow and objectives, contextualized to your learners, exported directly into your real 4-day or 5-day template.</p>
+      <a class="btn" href="./ILAW_DLL_Generator.html">Open DLL Generator →</a>
+    </div>
+  </div>
+
+</main>
+
+<footer>Cloud save and the AI proxy are configured centrally by the site admin. Each teacher only needs to add their own free Gemini API key once, in either tool's Settings — it's shared between both.</footer>
+
+<script>
+// Firebase project is set once by the admin in config.js (loaded before this
+// script) — nothing here is user-configurable.
+let fbReady = false, fbAuth = null;
+try{
+  if(typeof ADMIN_FIREBASE_CONFIG !== 'undefined' && ADMIN_FIREBASE_CONFIG.apiKey && ADMIN_FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY' && typeof firebase !== 'undefined'){
+    firebase.initializeApp(ADMIN_FIREBASE_CONFIG);
+    fbAuth = firebase.auth();
+    fbReady = true;
+  }
+}catch(e){ console.warn('Firebase not configured:', e); }
+
+function showAuthErr(msg){
+  const el = document.getElementById('authErr');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+function signIn(){
+  if(!fbReady){
+    showAuthErr('⚠ Firebase isn\'t configured yet. Contact the site admin — it\'s set once in config.js and applies to all three apps.');
+    return;
+  }
+  const provider = new firebase.auth.GoogleAuthProvider();
+  fbAuth.signInWithPopup(provider).catch(err => showAuthErr('⚠ Sign-in failed: ' + err.message));
+}
+function signOutUser(){ if(fbReady) fbAuth.signOut(); }
+
+if(fbReady){
+  fbAuth.onAuthStateChanged(user => {
+    if(user){
+      document.getElementById('signedOutView').style.display = 'none';
+      document.getElementById('signedInBar').style.display = 'flex';
+      document.getElementById('toolGrid').style.display = 'grid';
+      document.getElementById('userEmailLabel').textContent = user.email;
+    } else {
+      document.getElementById('signedOutView').style.display = 'block';
+      document.getElementById('signedInBar').style.display = 'none';
+      document.getElementById('toolGrid').style.display = 'none';
+    }
+  });
+} else {
+  // No Firebase configured anywhere yet — don't block access, just skip straight to the tools.
+  document.getElementById('signedOutView').style.display = 'none';
+  document.getElementById('toolGrid').style.display = 'grid';
+}
+</script>
+</body>
+</html>
