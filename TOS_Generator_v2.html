@@ -411,6 +411,13 @@ table.tbl-tos tr.total-row td{background:var(--paper-deep);font-weight:700;}
 <header>
   <div class="wrap" style="position:relative;">
     <div style="position:absolute;top:0;right:0;display:flex;gap:8px;">
+      <div style="position:relative;">
+        <button id="notifBellBtn" onclick="toggleNotifPanel()" title="Notifications" style="display:none;align-items:center;justify-content:center;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.3);color:#fff;width:40px;height:40px;border-radius:50%;font-size:17px;cursor:pointer;position:relative;">
+          🔔
+          <span id="notifBadge" style="display:none;position:absolute;top:-3px;right:-3px;background:#a83030;color:#fff;font-size:10px;font-weight:700;min-width:17px;height:17px;border-radius:9px;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid var(--maroon-deep);">0</span>
+        </button>
+        <div id="notifPanel" style="display:none;position:absolute;top:48px;right:0;width:320px;max-height:420px;overflow-y:auto;background:rgba(255,255,255,.97);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.9);border-radius:12px;box-shadow:0 20px 50px -20px rgba(20,40,70,.4);z-index:50;padding:10px;color:var(--ink);text-align:left;"></div>
+      </div>
       <a href="./index.html" title="Back to Teacher Tools" style="display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.3);color:#fff;width:40px;height:40px;border-radius:50%;font-size:17px;cursor:pointer;text-decoration:none;">🏠</a>
     </div>
     <p class="eyebrow">Sicayab National High School · Schools Division of Dipolog City</p>
@@ -1994,6 +2001,11 @@ function updateAuthUI(){
   document.getElementById('adminRolesCard').style.display = (currentRole==='admin') ? 'block' : 'none';
   const subBtn=document.getElementById('submitReviewBtn');
   if(subBtn) subBtn.style.display = (signedIn && tosData) ? 'inline-block' : 'none';
+  const bell=document.getElementById('notifBellBtn');
+  if(bell) bell.style.display = signedIn ? 'flex' : 'none';
+  if(!signedIn){
+    const panel=document.getElementById('notifPanel'); if(panel) panel.style.display='none';
+  }
 
   if(signedIn){
     document.getElementById('authUserPhoto').src = currentUser.photo || '';
@@ -2115,10 +2127,90 @@ async function loadMySubmissions(){
     const snap = await fbDb.collection('submissions').where('teacherUid','==',currentUser.uid).orderBy('submittedAt','desc').limit(50).get();
     mySubmissions = snap.docs.map(d=>({ id:d.id, ...d.data() }));
     renderMySubmissions();
+    updateNotifBadge();
   }catch(err){
     listEl.innerHTML=`<div class="qb-empty">⚠ Could not load your submissions: ${esc(err.message)}</div>`;
   }
 }
+
+/* ═══════════════════════════════════════════════════
+   RETURN NOTIFICATIONS — a small bell next to the 🏠 home icon that flags when
+   a department head has approved or requested revisions on one of THIS
+   teacher's own submissions. A submission counts as an unseen notification
+   when its status is no longer 'Pending' and teacherSeen hasn't been set —
+   teacherSeen is reset to false by setSubmissionStatus() whenever a checker
+   actually changes the status, and flipped back to true once the teacher
+   opens that notification here.
+   ═══════════════════════════════════════════════════ */
+function getUnseenReturnedSubmissions(){
+  return mySubmissions.filter(s => (s.status==='Approved' || s.status==='NeedsRevision') && s.teacherSeen===false);
+}
+
+function updateNotifBadge(){
+  const badge=document.getElementById('notifBadge');
+  if(!badge) return;
+  const n = getUnseenReturnedSubmissions().length;
+  badge.textContent = n>9 ? '9+' : String(n);
+  badge.style.display = n>0 ? 'flex' : 'none';
+}
+
+function toggleNotifPanel(){
+  const panel=document.getElementById('notifPanel');
+  if(!panel) return;
+  const opening = panel.style.display==='none' || !panel.style.display;
+  if(opening){
+    loadMySubmissions().then(renderNotifPanel); // refresh first, in case a checker just acted
+    renderNotifPanel(); // render immediately with whatever's cached too, so it's not empty while loading
+    panel.style.display='block';
+  } else {
+    panel.style.display='none';
+  }
+}
+
+function renderNotifPanel(){
+  const panel=document.getElementById('notifPanel');
+  if(!panel) return;
+  const items = getUnseenReturnedSubmissions();
+  if(!items.length){
+    panel.innerHTML = `<div style="font-size:12.5px;color:var(--muted);padding:10px;text-align:center;">No new notifications.</div>`;
+    return;
+  }
+  const statusLabels={Approved:'✅ Approved',NeedsRevision:'⚠ Needs Revision'};
+  panel.innerHTML = `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:4px 6px 8px;">${items.length} submission${items.length>1?'s':''} returned to you</div>` +
+    items.map(s => `<div id="notifItem-${s.id}" style="padding:8px 10px;border-radius:8px;cursor:pointer;margin-bottom:4px;" onmouseenter="this.style.background='var(--paper-deep)'" onmouseleave="this.style.background=''" onclick="openNotification('${s.id}')">
+      <div style="font-size:13px;font-weight:600;color:var(--rose);">${esc(s.subject)} ${s.grade?'— '+esc(s.grade):''}</div>
+      <div style="font-size:11.5px;color:var(--muted);">${statusLabels[s.status]||s.status} · ${esc(s.termLabel||'')}</div>
+    </div>`).join('');
+}
+
+async function openNotification(id){
+  const s = mySubmissions.find(x=>x.id===id);
+  if(!s) return;
+  // Mark seen immediately so the badge count reflects it right away, then swap
+  // that notification's row in-place for its description instead of just
+  // removing it, so clicking still shows what was reviewed/approved.
+  try{ await fbDb.collection('submissions').doc(id).update({ teacherSeen: true }); }catch(err){ /* non-fatal — still show the description */ }
+  s.teacherSeen = true;
+  updateNotifBadge();
+  const statusLabels={Approved:'✅ Approved',NeedsRevision:'⚠ Needs Revision'};
+  const lastComment = (s.comments&&s.comments.length) ? s.comments[s.comments.length-1] : null;
+  const row = document.getElementById(`notifItem-${id}`);
+  if(row){
+    row.style.cursor='default';
+    row.onmouseenter=null; row.onmouseleave=null; row.onclick=null;
+    row.innerHTML = `<div style="font-size:13px;font-weight:600;color:var(--rose);">${esc(s.subject)} ${s.grade?'— '+esc(s.grade):''}</div>
+      <div style="font-size:11.5px;color:var(--muted);margin-bottom:4px;">${statusLabels[s.status]||s.status} · ${esc(s.termLabel||'')} · ${s.totalItems||0} items</div>
+      ${lastComment ? `<div style="font-size:12px;color:var(--ink);"><strong>${esc(lastComment.author)}:</strong> ${esc(lastComment.text)}</div>` : `<div style="font-size:12px;color:var(--muted);font-style:italic;">No comment left.</div>`}`;
+  }
+}
+
+document.addEventListener('click', (e) => {
+  const panel=document.getElementById('notifPanel');
+  const bell=document.getElementById('notifBellBtn');
+  if(!panel || panel.style.display==='none') return;
+  if(panel.contains(e.target) || (bell && bell.contains(e.target))) return;
+  panel.style.display='none';
+});
 
 function renderMySubmissions(){
   const listEl=document.getElementById('mySubmissionsList');
@@ -2244,7 +2336,7 @@ function reviewItemBodyHtml(slot,it){
   if(it.type==='tf') return `${textWithBreaks(it.stem)} <em>(True/False — answer: ${esc(it.tf||'—')})</em>`;
   if(it.type==='matching') return `${textWithBreaks(it.stem)}<br>` + (it.pairs||[]).map(p=>`${esc(p.left)} ↔ ${esc(p.right)}`).join('<br>');
   if(it.type==='open') return `${textWithBreaks(it.stem)}<br><span style="font-size:11px;color:var(--muted);">Rubric: ${esc(it.rubric||'—')}</span>`;
-  return `${textWithBreaks(it.stem)}<br>` +
+  return `${textWithBreaks(it.stem)}<br><br>` +
     ['A','B','C','D'].map(L => `${L}. ${esc(it['opt'+L]||'')}`).join('<br>') +
     `<br><em style="color:var(--muted);">(correct: ${esc(it.correct||'—')})</em>`;
 }
@@ -2429,8 +2521,13 @@ function openSubmission(id){
 
 async function setSubmissionStatus(id, status){
   try{
-    await fbDb.collection('submissions').doc(id).update({ status });
-    const s=rdSubmissions.find(x=>x.id===id); if(s) s.status=status;
+    // Approved/NeedsRevision are the two outcomes that should notify the teacher who
+    // submitted it — Pending is the starting state, not something to notify about.
+    const updatePayload = { status };
+    if(status==='Approved' || status==='NeedsRevision') updatePayload.teacherSeen = false;
+    await fbDb.collection('submissions').doc(id).update(updatePayload);
+    const s=rdSubmissions.find(x=>x.id===id);
+    if(s){ s.status=status; if(updatePayload.teacherSeen!==undefined) s.teacherSeen=false; }
     openSubmission(id);
     if(status==='NeedsRevision'){
       // Bring the comment box front-and-center so the reviewer explains what needs
