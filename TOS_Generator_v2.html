@@ -1395,11 +1395,17 @@ function generateTOS(){
     return{label:c.label,lessons:c.lessons||'',objectives:c.objs.filter(o=>o.trim()),objDomains,days:parseFloat(c.days)||0,items:rowItems,pct:c.days/totalDays,domains:domMap,placement:placement.join('\n'),placementRanges};
   });
   tosData={rows,target,totalDays,totalItems,domainRanges,mcqCount,pisaNum,oeNum,pisaPoints,oePoints,pisaDomain,oeDomain};
-  loadedCloudTestMeta=null; currentCloudTestId=null; activeSubmissionId=null; activeSubmissionItemComments={}; // generating a new TOS always reverts Test Maker to live mode
+  loadedCloudTestMeta=null; currentCloudTestId=null; activeSubmissionId=null; activeSubmissionItemComments={}; activeSubmissionSourceData=null; // generating a new TOS always reverts Test Maker to live mode
   renderPreview(tosData);
-  const subBtn=document.getElementById('submitReviewBtn');
-  if(subBtn) subBtn.style.display = currentUser ? 'inline-block' : 'none';
+  updateSubmitButtonState();
 }
+function updateSubmitButtonState(){
+  const subBtn=document.getElementById('submitReviewBtn');
+  if(!subBtn) return;
+  subBtn.style.display = (!!currentUser && (!!tosData || !!activeSubmissionId)) ? 'inline-block' : 'none';
+  subBtn.textContent = activeSubmissionId ? '📤 Resubmit for Review' : '📤 Submit for Review';
+}
+
 function renderPreview({rows,target,totalDays,totalItems,domainRanges,mcqCount,pisaNum,oeNum,pisaPoints,oePoints,pisaDomain,oeDomain}){
   const totDom={};DOMAINS.forEach(d=>{totDom[d]=rows.reduce((a,r)=>a+(r.domains[d]||0),0);});
   // PISA-like/Open-Ended aren't tied to any specific competency row, but their chosen
@@ -1999,8 +2005,7 @@ function updateAuthUI(){
   document.getElementById('authUserBox').style.display = signedIn ? 'flex' : 'none';
   document.getElementById('tabReview').style.display = (currentRole==='departmentHead'||currentRole==='admin') ? 'block' : 'none';
   document.getElementById('adminRolesCard').style.display = (currentRole==='admin') ? 'block' : 'none';
-  const subBtn=document.getElementById('submitReviewBtn');
-  if(subBtn) subBtn.style.display = (signedIn && tosData) ? 'inline-block' : 'none';
+  updateSubmitButtonState();
   const bell=document.getElementById('notifBellBtn');
   if(bell) bell.style.display = signedIn ? 'flex' : 'none';
   if(!signedIn){
@@ -2070,45 +2075,76 @@ if(fbReady){
    ═══════════════════════════════════════════════════ */
 async function submitForReview(){
   if(!fbReady || !currentUser){ alert('Sign in first to submit for review.'); return; }
-  if(!tosData){ alert('Generate the TOS first.'); return; }
+  const isResubmit = !!activeSubmissionId;
+  if(!isResubmit && !tosData){ alert('Generate the TOS first.'); return; }
+
   const btn=document.getElementById('submitReviewBtn');
-  btn.disabled=true; const orig=btn.textContent; btn.textContent='Submitting…';
+  if(btn){ btn.disabled=true; }
+  const orig = btn ? btn.textContent : '';
+  if(btn) btn.textContent = isResubmit ? 'Resubmitting…' : 'Submitting…';
+
   try{
-    const subject=document.getElementById('si-subject').value.trim()||'Untitled Subject';
-    const grade=document.getElementById('si-grade').value.trim();
-    const termNames=['1st Term','2nd Term','3rd Term'];
-    const assessLabel = isExamCode(assess) ? `Term ${term} Examination` : assess;
+    if(isResubmit){
+      // Resubmitting a previously-returned submission: reuse ITS OWN subject/grade/term/TOS
+      // rows exactly as they were (only the test items were edited here, not the TOS
+      // structure) — the live Builder form may not correspond to this submission at all if
+      // the teacher jumped straight from My Submissions into Test Maker. Swap in the current
+      // (edited) test items, and reset this SAME document back to Pending for another pass —
+      // rather than creating a brand-new, disconnected submission.
+      const src = activeSubmissionSourceData || {};
+      const payload = {
+        subject: src.subject, grade: src.grade, termLabel: src.termLabel,
+        tosRows: src.tosRows, totalItems: src.totalItems,
+        status: 'Pending',
+        reviewerSeen: false,
+        submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        comments: [],       // fresh review cycle — the previous overall note no longer applies
+        itemComments: {},   // and the previous per-item comments, since they've just been addressed
+        testMakerSnapshot: { slots: buildMakerSlots(), testItems }
+      };
+      await fbDb.collection('submissions').doc(activeSubmissionId).update(payload);
+      alert('✓ Resubmitted for review.');
+      // Back to live mode — the resubmitted version now lives entirely in Firestore;
+      // nothing more to track here until it comes back again.
+      loadedCloudTestMeta=null; currentCloudTestId=null;
+      activeSubmissionId=null; activeSubmissionItemComments={}; activeSubmissionSourceData=null;
+      renderTestMaker();
+    } else {
+      const subject=document.getElementById('si-subject').value.trim()||'Untitled Subject';
+      const grade=document.getElementById('si-grade').value.trim();
+      const termNames=['1st Term','2nd Term','3rd Term'];
+      const assessLabel = isExamCode(assess) ? `Term ${term} Examination` : assess;
 
-    const payload = {
-      teacherUid: currentUser.uid,
-      teacherName: currentUser.name,
-      teacherEmail: currentUser.email,
-      subject, grade,
-      termLabel: `${termNames[term-1]} (${assessLabel})`,
-      submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      status: 'Pending',
-      reviewerSeen: false,
-      comments: [],
-      tosRows: tosData.rows.map(r=>({
-        label:r.label, days:r.days, items:r.items, domains:r.domains, placement:r.placement,
-        objectives:r.objectives, objDomains:r.objDomains, placementRanges:r.placementRanges
-      })),
-      totalItems: tosData.totalItems,
-      // Only attach Test Maker content when it genuinely corresponds to this live TOS
-      // (not a different test loaded from the cloud), so submissions never mix content
-      // from two unrelated tests.
-      testMakerSnapshot: (!loadedCloudTestMeta && Object.keys(testItems).length>0)
-        ? { slots: buildMakerSlots(), testItems }
-        : null
-    };
-
-    await fbDb.collection('submissions').add(payload);
-    alert('✓ Submitted for review.');
+      const payload = {
+        teacherUid: currentUser.uid,
+        teacherName: currentUser.name,
+        teacherEmail: currentUser.email,
+        subject, grade,
+        termLabel: `${termNames[term-1]} (${assessLabel})`,
+        submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        status: 'Pending',
+        reviewerSeen: false,
+        comments: [],
+        tosRows: tosData.rows.map(r=>({
+          label:r.label, days:r.days, items:r.items, domains:r.domains, placement:r.placement,
+          objectives:r.objectives, objDomains:r.objDomains, placementRanges:r.placementRanges
+        })),
+        totalItems: tosData.totalItems,
+        // Only attach Test Maker content when it genuinely corresponds to this live TOS
+        // (not a different test loaded from the cloud), so submissions never mix content
+        // from two unrelated tests.
+        testMakerSnapshot: (!loadedCloudTestMeta && Object.keys(testItems).length>0)
+          ? { slots: buildMakerSlots(), testItems }
+          : null
+      };
+      await fbDb.collection('submissions').add(payload);
+      alert('✓ Submitted for review.');
+    }
     loadMySubmissions();
   }catch(err){
     alert('Submission failed: '+err.message);
   }finally{
-    btn.disabled=false; btn.textContent=orig;
+    if(btn){ btn.disabled=false; btn.textContent=orig; }
   }
 }
 
@@ -2669,6 +2705,7 @@ const TEXTAREA_FORMATTING = 'TEXT FORMATTING (this renders in a plain-text box, 
 let loadedCloudTestMeta=null; // when a saved cloud test is loaded, its own slot snapshot takes priority over the live TOS
 let activeSubmissionId=null; // set when a submission's items are loaded into Test Maker for editing
 let activeSubmissionItemComments={}; // that submission's per-item checker comments, shown read-only alongside each item
+let activeSubmissionSourceData=null; // that submission's own subject/grade/term/TOS rows — reused on resubmit since the live Builder form may not correspond to it at all
 let currentCloudTestId=null;  // if set, "Save" updates this doc instead of creating a new one
 
 function buildMakerSlots(){
@@ -2998,6 +3035,7 @@ function renderTestMaker(){
   const itemsEl=document.getElementById('makerItems');
   updateMakerGenAllVisibility();
   updateLoadedTestBanner();
+  updateSubmitButtonState();
   if(slots.length===0){
     emptyEl.style.display='block'; progWrap.style.display='none'; actionsEl.style.display='none'; itemsEl.innerHTML='';
     return;
@@ -3089,7 +3127,7 @@ function loadCloudTest(id){
   if(!t) return;
   loadedCloudTestMeta={ title:t.title, slots:t.slots||[] };
   currentCloudTestId=id;
-  activeSubmissionId=null; activeSubmissionItemComments={}; // this is a plain saved test, not a reviewed submission
+  activeSubmissionId=null; activeSubmissionItemComments={}; activeSubmissionSourceData=null; // this is a plain saved test, not a reviewed submission
   testItems=JSON.parse(JSON.stringify(t.testItems||{}));
   makerAutosave();
   renderTestMaker();
@@ -3107,6 +3145,7 @@ function loadSubmissionIntoTestMaker(id){
   currentCloudTestId=null; // not a saved-test id — belongs to the submissions collection instead
   activeSubmissionId=id;
   activeSubmissionItemComments=s.itemComments||{};
+  activeSubmissionSourceData={ subject:s.subject, grade:s.grade, termLabel:s.termLabel, tosRows:s.tosRows, totalItems:s.totalItems };
   testItems=JSON.parse(JSON.stringify(s.testMakerSnapshot.testItems||{}));
   makerAutosave();
   setView('maker');
@@ -3128,6 +3167,7 @@ function unloadCloudTest(){
   currentCloudTestId=null;
   activeSubmissionId=null;
   activeSubmissionItemComments={};
+  activeSubmissionSourceData=null;
   renderTestMaker();
 }
 
