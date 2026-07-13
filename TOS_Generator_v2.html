@@ -2003,18 +2003,30 @@ if(fbReady){
   fbAuth.onAuthStateChanged(async(user)=>{
     document.getElementById('loginSpinner').style.display='none';
     if(user){
-      if(ALLOWED_EMAIL_DOMAIN && !user.email.toLowerCase().endsWith('@'+ALLOWED_EMAIL_DOMAIN.toLowerCase())){
-        showAuthMsg(`⚠ Only @${ALLOWED_EMAIL_DOMAIN} accounts are allowed. Signing out.`);
-        await fbAuth.signOut();
-        currentUser=null; currentRole=null; updateAuthUI();
-        return;
+      try{
+        if(ALLOWED_EMAIL_DOMAIN && !user.email.toLowerCase().endsWith('@'+ALLOWED_EMAIL_DOMAIN.toLowerCase())){
+          showAuthMsg(`⚠ Only @${ALLOWED_EMAIL_DOMAIN} accounts are allowed. Signing out.`);
+          await fbAuth.signOut();
+          currentUser=null; currentRole=null; updateAuthUI();
+          return;
+        }
+        currentUser = { uid:user.uid, email:user.email, name:user.displayName||user.email, photo:user.photoURL };
+        currentRole = await ensureUserDoc(user);
+        updateAuthUI();
+        loadCloudDraftsList();
+        loadAiConfig();
+        const cdc=document.getElementById('cloudDraftsCard'); if(cdc) cdc.style.display='block';
+      }catch(err){
+        // Covers any failure after a successful Google sign-in — most commonly Firestore
+        // rejecting this account (e.g. a domain restriction enforced in Security Rules,
+        // separate from the ALLOWED_EMAIL_DOMAIN check above). Without this, an error here
+        // would leave the page stuck mid-transition instead of returning to a usable state.
+        console.error('Sign-in follow-up failed:', err);
+        showAuthMsg('⚠ This account isn\'t allowed to sign in here. Signing out. (' + (err && err.message ? err.message : 'unknown error') + ')');
+        try{ await fbAuth.signOut(); }catch(e2){}
+        currentUser=null; currentRole=null;
+        updateAuthUI();
       }
-      currentUser = { uid:user.uid, email:user.email, name:user.displayName||user.email, photo:user.photoURL };
-      currentRole = await ensureUserDoc(user);
-      updateAuthUI();
-      loadCloudDraftsList();
-      loadAiConfig();
-      const cdc=document.getElementById('cloudDraftsCard'); if(cdc) cdc.style.display='block';
     } else {
       currentUser=null; currentRole=null;
       updateAuthUI();
