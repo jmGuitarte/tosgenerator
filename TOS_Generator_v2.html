@@ -2132,6 +2132,14 @@ function renderMySubmissions(){
     const dt = s.submittedAt && s.submittedAt.toDate ? s.submittedAt.toDate().toLocaleString([], {dateStyle:'medium',timeStyle:'short'}) : '—';
     const statusClass = (s.status||'Pending').replace(/\s+/g,'');
     const lastComment = (s.comments&&s.comments.length) ? s.comments[s.comments.length-1] : null;
+    // Read-only view of items + any per-item checker comments — nothing here is
+    // editable by the teacher, they can only see what the checker left them.
+    const itemsSectionHtml = (s.testMakerSnapshot && s.testMakerSnapshot.slots && s.testMakerSnapshot.slots.length)
+      ? `<details style="margin-top:10px;">
+          <summary style="cursor:pointer;font-size:12.5px;color:var(--rose);font-weight:600;">📋 View items &amp; checker comments</summary>
+          <div style="margin-top:8px;">${buildReviewItemsHtml(s.testMakerSnapshot, s.id, { editable:false, itemComments: s.itemComments||{} })}</div>
+        </details>`
+      : '';
     return `<div class="rd-card">
       <div class="rd-card-top">
         <div>
@@ -2141,6 +2149,7 @@ function renderMySubmissions(){
         </div>
         <span class="rd-status ${statusClass}">${esc(statusLabels[s.status]||s.status||'Pending')}</span>
       </div>
+      ${itemsSectionHtml}
       <div class="btn-row" style="margin-top:10px;">
         <button class="btn btn-sm" onclick="unsubmitSubmission('${s.id}')">↩ Unsubmit</button>
       </div>
@@ -2275,7 +2284,12 @@ function clearTOSHighlight(){
   else clearAllTOSHighlight();
 }
 
-function buildReviewItemsHtml(snapshot, subId){
+function buildReviewItemsHtml(snapshot, subId, opts){
+  opts = opts || {};
+  const editable = opts.editable !== false;
+  const itemComments = opts.itemComments || {};
+  const submissionId = opts.submissionId || subId;
+
   const { slots, testItems: mItems } = snapshot;
   const doneCount = slots.filter(slot=>isItemWrittenForReview(slot, mItems[slot.num])).length;
   const pct = slots.length ? Math.round(doneCount/slots.length*100) : 0;
@@ -2291,13 +2305,29 @@ function buildReviewItemsHtml(snapshot, subId){
     const domBadge = slot.isPisa?'PISA':slot.isOE?'OE':ABBR[slot.domain];
     const badgeColor = slot.isPisa?'#5c4a8a':slot.isOE?'#8a4a2f':DCOLOR[slot.domain];
     const bodyId=`rev-body-${subId}-${slot.num}`;
+    const cmt = itemComments[slot.num];
+    // Editable for the checker (Review Dashboard): a textarea + Save button, pre-filled
+    // with any existing comment. Read-only for the teacher (My Submissions): plain text,
+    // shown only if a comment actually exists — nothing editable on their side.
+    const commentHtml = editable
+      ? `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);">
+          <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;">💬 Comment on this item <span style="font-weight:400;text-transform:none;letter-spacing:0;">(optional — the teacher will see this, read-only)</span></label>
+          <div class="grow-wrap" data-replicated-value="${esc(cmt?cmt.text:'')}"><textarea id="itemComment-${submissionId}-${slot.num}" placeholder="Note about this specific item…" oninput="this.parentNode.dataset.replicatedValue=this.value">${esc(cmt?cmt.text:'')}</textarea></div>
+          <button class="btn btn-sm" style="margin-top:6px;" onclick="saveItemComment('${submissionId}',${slot.num})">Save comment</button>
+          <span id="itemCommentStatus-${submissionId}-${slot.num}" style="font-size:11px;color:var(--good);margin-left:6px;"></span>
+        </div>`
+      : (cmt && cmt.text ? `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);font-size:12.5px;">
+          <strong style="color:var(--rose);">💬 Checker's note:</strong> ${esc(cmt.text)}
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">— ${esc(cmt.author||'')}${cmt.at?(' · '+esc(cmt.at)):''}</div>
+        </div>` : '');
     itemsHtml+=`<div class="maker-item ${done?'done':''}" onmouseenter="highlightTOSForItem(${slot.num})" onmouseleave="clearTOSHighlight()">
       <div class="maker-item-head" onclick="toggleReviewItem('${bodyId}',${slot.num})">
         <span class="maker-item-num">#${slot.num}</span>
         <span class="qb-type-badge" style="background:${badgeColor}">${domBadge}</span>
         <span class="maker-item-status ${done?'done':'todo'}">${done?'✓ Written':'⚠ Not written'}</span>
+        ${(!editable && cmt && cmt.text) ? `<span style="font-size:11px;color:var(--gold);margin-left:auto;">💬 has comment</span>` : ''}
       </div>
-      <div class="maker-item-body" id="${bodyId}" style="padding:14px;font-size:13px;line-height:1.6;">${reviewItemBodyHtml(slot,it)}</div>
+      <div class="maker-item-body" id="${bodyId}" style="padding:14px;font-size:13px;line-height:1.6;">${reviewItemBodyHtml(slot,it)}${commentHtml}</div>
     </div>`;
   });
 
@@ -2312,6 +2342,20 @@ function buildReviewItemsHtml(snapshot, subId){
     </div>
     ${itemsHtml}
   `;
+}
+
+async function saveItemComment(id, num){
+  const ta = document.getElementById(`itemComment-${id}-${num}`);
+  if(!ta) return;
+  const text = ta.value.trim();
+  const statusEl = document.getElementById(`itemCommentStatus-${id}-${num}`);
+  try{
+    const commentObj = { text, author: currentUser.name, at: new Date().toLocaleString([], {dateStyle:'medium',timeStyle:'short'}) };
+    await fbDb.collection('submissions').doc(id).update({ [`itemComments.${num}`]: commentObj });
+    const s = rdSubmissions.find(x=>x.id===id);
+    if(s){ if(!s.itemComments) s.itemComments={}; s.itemComments[num]=commentObj; }
+    if(statusEl){ statusEl.textContent = text ? '✓ Saved' : '✓ Cleared'; setTimeout(()=>{ if(statusEl) statusEl.textContent=''; }, 2500); }
+  }catch(err){ if(statusEl) statusEl.textContent='⚠ '+err.message; }
 }
 
 function openSubmission(id){
@@ -2354,7 +2398,7 @@ function openSubmission(id){
 
   let testMakerHtml='';
   if(s.testMakerSnapshot && s.testMakerSnapshot.slots && s.testMakerSnapshot.slots.length){
-    testMakerHtml = buildReviewItemsHtml(s.testMakerSnapshot, s.id);
+    testMakerHtml = buildReviewItemsHtml(s.testMakerSnapshot, s.id, { editable:true, itemComments: s.itemComments||{}, submissionId: s.id });
   }
 
   const statuses=['Pending','Approved','NeedsRevision'];
