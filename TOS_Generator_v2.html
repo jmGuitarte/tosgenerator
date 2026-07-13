@@ -1395,7 +1395,7 @@ function generateTOS(){
     return{label:c.label,lessons:c.lessons||'',objectives:c.objs.filter(o=>o.trim()),objDomains,days:parseFloat(c.days)||0,items:rowItems,pct:c.days/totalDays,domains:domMap,placement:placement.join('\n'),placementRanges};
   });
   tosData={rows,target,totalDays,totalItems,domainRanges,mcqCount,pisaNum,oeNum,pisaPoints,oePoints,pisaDomain,oeDomain};
-  loadedCloudTestMeta=null; currentCloudTestId=null; // generating a new TOS always reverts Test Maker to live mode
+  loadedCloudTestMeta=null; currentCloudTestId=null; activeSubmissionId=null; activeSubmissionItemComments={}; // generating a new TOS always reverts Test Maker to live mode
   renderPreview(tosData);
   const subBtn=document.getElementById('submitReviewBtn');
   if(subBtn) subBtn.style.display = currentUser ? 'inline-block' : 'none';
@@ -2198,9 +2198,11 @@ async function openNotification(id){
   if(row){
     row.style.cursor='default';
     row.onmouseenter=null; row.onmouseleave=null; row.onclick=null;
+    const hasItems = s.testMakerSnapshot && s.testMakerSnapshot.slots && s.testMakerSnapshot.slots.length;
     row.innerHTML = `<div style="font-size:13px;font-weight:600;color:var(--rose);">${esc(s.subject)} ${s.grade?'— '+esc(s.grade):''}</div>
       <div style="font-size:11.5px;color:var(--muted);margin-bottom:4px;">${statusLabels[s.status]||s.status} · ${esc(s.termLabel||'')} · ${s.totalItems||0} items</div>
-      ${lastComment ? `<div style="font-size:12px;color:var(--ink);"><strong>${esc(lastComment.author)}:</strong> ${esc(lastComment.text)}</div>` : `<div style="font-size:12px;color:var(--muted);font-style:italic;">No comment left.</div>`}`;
+      ${lastComment ? `<div style="font-size:12px;color:var(--ink);"><strong>${esc(lastComment.author)}:</strong> ${esc(lastComment.text)}</div>` : `<div style="font-size:12px;color:var(--muted);font-style:italic;">No comment left.</div>`}
+      ${hasItems ? `<button class="btn btn-sm btn-primary" style="margin-top:8px;" onclick="event.stopPropagation();loadSubmissionIntoTestMaker('${s.id}')">✏️ Edit in Test Maker</button>` : ''}`;
   }
 }
 
@@ -2224,25 +2226,20 @@ function renderMySubmissions(){
     const dt = s.submittedAt && s.submittedAt.toDate ? s.submittedAt.toDate().toLocaleString([], {dateStyle:'medium',timeStyle:'short'}) : '—';
     const statusClass = (s.status||'Pending').replace(/\s+/g,'');
     const lastComment = (s.comments&&s.comments.length) ? s.comments[s.comments.length-1] : null;
-    // Read-only view of items + any per-item checker comments — nothing here is
-    // editable by the teacher, they can only see what the checker left them.
-    const itemsSectionHtml = (s.testMakerSnapshot && s.testMakerSnapshot.slots && s.testMakerSnapshot.slots.length)
-      ? `<details style="margin-top:10px;">
-          <summary style="cursor:pointer;font-size:12.5px;color:var(--rose);font-weight:600;">📋 View items &amp; checker comments</summary>
-          <div style="margin-top:8px;">${buildReviewItemsHtml(s.testMakerSnapshot, s.id, { editable:false, itemComments: s.itemComments||{} })}</div>
-        </details>`
-      : '';
+    const hasItems = s.testMakerSnapshot && s.testMakerSnapshot.slots && s.testMakerSnapshot.slots.length;
+    const commentCount = Object.values(s.itemComments||{}).filter(c=>c&&c.text).length;
     return `<div class="rd-card">
       <div class="rd-card-top">
         <div>
           <div class="rd-card-title">${esc(s.subject)} ${s.grade?'— '+esc(s.grade):''}</div>
           <div class="rd-card-meta">${esc(s.termLabel||'')} · ${s.totalItems||0} items · submitted ${dt}</div>
           ${lastComment ? `<div style="font-size:12px;color:var(--muted);margin-top:6px;"><strong>${esc(lastComment.author)}:</strong> ${esc(lastComment.text)}</div>` : ''}
+          ${commentCount>0 ? `<div style="font-size:11.5px;color:var(--gold);margin-top:4px;">💬 ${commentCount} item${commentCount>1?'s':''} with a checker comment</div>` : ''}
         </div>
         <span class="rd-status ${statusClass}">${esc(statusLabels[s.status]||s.status||'Pending')}</span>
       </div>
-      ${itemsSectionHtml}
       <div class="btn-row" style="margin-top:10px;">
+        ${hasItems ? `<button class="btn btn-sm btn-primary" onclick="loadSubmissionIntoTestMaker('${s.id}')">✏️ Edit in Test Maker</button>` : ''}
         <button class="btn btn-sm" onclick="unsubmitSubmission('${s.id}')">↩ Unsubmit</button>
       </div>
     </div>`;
@@ -2607,6 +2604,8 @@ const NO_MODULE_PHRASING = 'Do NOT reference "the module" in any way — never w
 const TEXTAREA_FORMATTING = 'TEXT FORMATTING (this renders in a plain-text box, so use these plain-text conventions): wrap any heading, subheading, or important term in double asterisks for bold, like **this**. Write lists as bulleted lines, each starting with "- ". After a passage or paragraph, leave exactly one blank line before the next one.';
 
 let loadedCloudTestMeta=null; // when a saved cloud test is loaded, its own slot snapshot takes priority over the live TOS
+let activeSubmissionId=null; // set when a submission's items are loaded into Test Maker for editing
+let activeSubmissionItemComments={}; // that submission's per-item checker comments, shown read-only alongside each item
 let currentCloudTestId=null;  // if set, "Save" updates this doc instead of creating a new one
 
 function buildMakerSlots(){
@@ -3027,9 +3026,29 @@ function loadCloudTest(id){
   if(!t) return;
   loadedCloudTestMeta={ title:t.title, slots:t.slots||[] };
   currentCloudTestId=id;
+  activeSubmissionId=null; activeSubmissionItemComments={}; // this is a plain saved test, not a reviewed submission
   testItems=JSON.parse(JSON.stringify(t.testItems||{}));
   makerAutosave();
   renderTestMaker();
+}
+
+/* Loads a submission's test items directly into the live Test Maker for editing —
+   used from My Submissions instead of the old read-only item list, so a teacher
+   whose test got sent back can edit each flagged item right where they'd normally
+   write it, with the checker's note sitting right alongside it (read-only — only
+   the checker can write to it, from the Review Dashboard). */
+function loadSubmissionIntoTestMaker(id){
+  const s=mySubmissions.find(x=>x.id===id);
+  if(!s || !s.testMakerSnapshot){ alert('This submission has no test items to load.'); return; }
+  loadedCloudTestMeta={ title:`${s.subject}${s.grade?' — '+s.grade:''}`, slots:s.testMakerSnapshot.slots||[] };
+  currentCloudTestId=null; // not a saved-test id — belongs to the submissions collection instead
+  activeSubmissionId=id;
+  activeSubmissionItemComments=s.itemComments||{};
+  testItems=JSON.parse(JSON.stringify(s.testMakerSnapshot.testItems||{}));
+  makerAutosave();
+  setView('maker');
+  renderTestMaker();
+  const panel=document.getElementById('notifPanel'); if(panel) panel.style.display='none';
 }
 
 async function deleteCloudTest(id){
@@ -3044,6 +3063,8 @@ async function deleteCloudTest(id){
 function unloadCloudTest(){
   loadedCloudTestMeta=null;
   currentCloudTestId=null;
+  activeSubmissionId=null;
+  activeSubmissionItemComments={};
   renderTestMaker();
 }
 
@@ -3053,7 +3074,9 @@ function updateLoadedTestBanner(){
   if(!banner) return;
   if(loadedCloudTestMeta){
     banner.style.display='block';
-    banner.innerHTML=`📍 Currently editing: <strong>${esc(loadedCloudTestMeta.title)}</strong> (loaded from the cloud)`;
+    banner.innerHTML = activeSubmissionId
+      ? `📍 Editing returned submission: <strong>${esc(loadedCloudTestMeta.title)}</strong> — any checker comments are shown next to their item, read-only. Resubmit from the TOS Builder tab when you're done.`
+      : `📍 Currently editing: <strong>${esc(loadedCloudTestMeta.title)}</strong> (loaded from the cloud)`;
     if(switchBtn) switchBtn.style.display='inline-block';
   } else {
     banner.style.display='none';
@@ -3135,6 +3158,12 @@ function makerItemHTML(slot){
       <div id="maker-fields-${slot.num}">${makerTypeFieldsHTML(slot.num,type,it)}</div>`;
   }
 
+  const cmt = activeSubmissionItemComments[slot.num];
+  const checkerCommentHtml = (cmt && cmt.text) ? `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);font-size:12.5px;background:#fdf6e6;border-radius:6px;padding:8px 10px;">
+    <strong style="color:var(--rose);">💬 Checker's note:</strong> ${esc(cmt.text)}
+    <div style="font-size:11px;color:var(--muted);margin-top:2px;">— ${esc(cmt.author||'')}${cmt.at?(' · '+esc(cmt.at)):''}</div>
+  </div>` : '';
+
   return `<div class="maker-item ${done?'done':''}" id="maker-item-${slot.num}" data-kind="${kind}">
     <div class="maker-item-head" onclick="toggleMakerItem(${slot.num})">
       <span class="maker-item-num">#${slot.num}</span>
@@ -3142,7 +3171,7 @@ function makerItemHTML(slot){
       <span style="font-size:12.5px;color:var(--muted);">${esc(suggested)}</span>
       <span class="maker-item-status ${done?'done':'todo'}">${done?'✓ Written':'Not written'}</span>
     </div>
-    <div class="maker-item-body" id="maker-body-${slot.num}">${bodyHtml}</div>
+    <div class="maker-item-body" id="maker-body-${slot.num}">${bodyHtml}${checkerCommentHtml}</div>
   </div>`;
 }
 
