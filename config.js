@@ -38,7 +38,7 @@ const ADMIN_GEMINI_WORKER_URL = "https://tos-gemini-proxy.snhs-ict.workers.dev";
 // If AI generation ever fails for everyone at once, check
 // https://ai.google.dev/gemini-api/docs/deprecations — Google periodically
 // retires model names, which would need an update here.
-const ADMIN_GEMINI_MODEL_LIST = "gemini-2.5-flash,gemini-2.5-flash-lite,gemini-2.0-flash";
+const ADMIN_GEMINI_MODEL_LIST = "gemini-2.5-flash, gemini-2.0-flash";
 
 // Optional — restrict Google sign-in to one email domain across all three
 // apps, e.g. "deped.gov.ph". Leave blank to allow any Google account.
